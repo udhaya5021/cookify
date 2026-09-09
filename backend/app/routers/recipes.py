@@ -172,3 +172,64 @@ def get_recipe(recipe_id: int, db: Session = Depends(get_db)):
     recipe.view_count += 1
     db.commit()
     return _serialize(recipe)
+
+
+@router.put("/{recipe_id}")
+async def edit_recipe(
+    recipe_id: int,
+    title: str = Form(...),
+    ingredients: str = Form(...),
+    utensils: str = Form(""),
+    steps: str = Form(...),
+    cost: float = Form(0.0),
+    cooking_time_minutes: int = Form(0),
+    calories: int = Form(0),
+    protein: int = Form(0),
+    speed: float = Form(3.0),
+    difficulty: float = Form(3.0),
+    dietary_tag: str = Form("vegetarian"),
+    food_type: str = Form(""),
+    region: str = Form(""),
+    media: UploadFile | None = File(None),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Structure Diagram: Display Recipe -> Edit recipe. Same reused form as
+    upload (per the wireframe's "Recipe Upload / Edit" page label), gated to
+    the recipe's own creator."""
+    recipe = db.query(Recipe).get(recipe_id)
+    if not recipe:
+        raise HTTPException(404, "Recipe not found")
+    if recipe.creator_id != user.id:
+        raise HTTPException(403, "Only the recipe's creator can edit it")
+    if not title.strip() or not ingredients.strip() or not steps.strip():
+        raise HTTPException(400, "Error: All fields must be filled")
+    if dietary_tag not in DIETARY_TAGS:
+        raise HTTPException(400, f"Error: dietary_tag must be one of {DIETARY_TAGS}")
+
+    if media is not None:
+        ext = os.path.splitext(media.filename or "")[1].lower()
+        if ext not in _ALLOWED_MEDIA_EXT:
+            raise HTTPException(400, "Error: Invalid image/video format")
+        filename = f"{uuid.uuid4().hex}{ext}"
+        dest = os.path.join(UPLOAD_DIR, filename)
+        with open(dest, "wb") as f:
+            shutil.copyfileobj(media.file, f)
+        recipe.media_url = f"/static/uploads/{filename}"
+
+    recipe.title = title
+    recipe.ingredients = ingredients
+    recipe.utensils = utensils
+    recipe.steps = steps
+    recipe.cost = cost
+    recipe.cooking_time_minutes = cooking_time_minutes
+    recipe.calories = calories
+    recipe.protein = protein
+    recipe.speed = speed
+    recipe.difficulty = difficulty
+    recipe.dietary_tag = dietary_tag
+    recipe.food_type = food_type
+    recipe.region = region
+    db.commit()
+    db.refresh(recipe)
+    return {"message": "Recipe updated successfully", "recipe": _serialize(recipe)}

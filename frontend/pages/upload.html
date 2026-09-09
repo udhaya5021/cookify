@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Cookify — Upload Recipe</title>
+<title>Cookify — Upload / Edit Recipe</title>
 <link rel="stylesheet" href="../css/style.css" />
 </head>
 <body>
 <div id="navbar"></div>
 
 <div class="form-card" style="max-width:520px;">
-  <h1>Upload Recipe</h1>
+  <h1 id="page-title">Upload Recipe</h1>
   <div id="alert"></div>
   <form id="upload-form">
     <input type="text" id="title" placeholder="Recipe title" required />
@@ -50,7 +50,7 @@
 
     <input type="file" id="media" accept="image/*,video/*" style="border-radius:8px; background:transparent; border:1px dashed var(--border);" />
 
-    <button class="btn" type="submit" style="width:100%; margin-top:14px;">Submit Recipe</button>
+    <button class="btn" type="submit" id="submit-btn" style="width:100%; margin-top:14px;">Submit Recipe</button>
   </form>
 </div>
 
@@ -59,6 +59,33 @@
 <script src="../js/navbar.js"></script>
 <script>
 requireAuth();
+
+// Structure Diagram: Display Recipe -> Edit recipe, reusing this same page
+// (the wireframe literally labels it "Recipe Upload / Edit"). ?id= present
+// means edit mode: prefill fields and PUT instead of POST.
+const editId = new URLSearchParams(window.location.search).get("id");
+
+async function prefillForEdit() {
+  const r = await api(`/api/recipes/${editId}`);
+  document.getElementById("page-title").textContent = "Edit Recipe";
+  document.getElementById("submit-btn").textContent = "Save Changes";
+  document.getElementById("title").value = r.title;
+  document.getElementById("ingredients").value = r.ingredients;
+  document.getElementById("utensils").value = r.utensils;
+  document.getElementById("steps").value = r.steps;
+  document.getElementById("cost").value = r.cost;
+  document.getElementById("time").value = r.cooking_time_minutes;
+  document.getElementById("calories").value = r.calories;
+  document.getElementById("protein").value = r.protein;
+  document.getElementById("dietary_tag").value = r.dietary_tag;
+  document.getElementById("food_type").value = r.food_type;
+  document.getElementById("region").value = r.region;
+  document.getElementById("speed").value = r.speed;
+  document.getElementById("speed-val").textContent = r.speed;
+  document.getElementById("difficulty").value = r.difficulty;
+  document.getElementById("difficulty-val").textContent = r.difficulty;
+}
+if (editId) prefillForEdit();
 
 document.getElementById("upload-form").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -83,7 +110,9 @@ document.getElementById("upload-form").addEventListener("submit", async (e) => {
   if (media) form.append("media", media);
 
   try {
-    const res = await api("/api/recipes", { method: "POST", auth: true, form });
+    const res = editId
+      ? await api(`/api/recipes/${editId}`, { method: "PUT", auth: true, form })
+      : await api("/api/recipes", { method: "POST", auth: true, form });
     window.location.href = `recipe.html?id=${res.recipe.id}`;
   } catch (err) {
     alertEl.innerHTML = `<div class="alert error">${err.message}</div>`;

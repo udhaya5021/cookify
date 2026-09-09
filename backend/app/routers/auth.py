@@ -73,9 +73,15 @@ def signup(body: SignupRequest, db: Session = Depends(get_db)):
 
 @router.post("/login")
 def login(body: LoginRequest, db: Session = Depends(get_db)):
+    # Login wireframe: "Username / Email / Phone Number" — all three are
+    # valid identifiers.
     user = (
         db.query(User)
-        .filter((User.username == body.identifier) | (User.email == body.identifier))
+        .filter(
+            (User.username == body.identifier)
+            | (User.email == body.identifier)
+            | (User.phone_number == body.identifier)
+        )
         .first()
     )
     if not user or not verify_password(body.password, user.password_hash):
