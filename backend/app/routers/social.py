@@ -9,7 +9,10 @@ from app.database import get_db
 from app.deps import get_current_user
 from app.models import User, Recipe, Comment, Rating, Subscription, Warning
 from app.services.content_filter import validate_comment
-from app.services.email_service import send_new_recipe_notification, send_warning_email
+from app.services.email_service import (
+    send_new_recipe_notification, send_warning_email,
+    send_new_comment_notification, send_new_rating_notification, send_new_subscriber_notification,
+)
 
 router = APIRouter(prefix="/api", tags=["social"])
 
@@ -54,6 +57,13 @@ def post_comment(
     db.add(comment)
     db.commit()
     db.refresh(comment)
+
+    # Commenting Method pseudocode: "NOTIFY Recipe Owner via Email" —
+    # skip if you're commenting on your own recipe.
+    owner = recipe.creator
+    if owner and owner.id != user.id:
+        send_new_comment_notification(owner.email, user.username, recipe.title)
+
     return {"message": "Comment posted", "comment_id": comment.id}
 
 
@@ -87,6 +97,12 @@ def rate_recipe(
         db.add(Rating(recipe_id=recipe_id, user_id=user.id, score=body.score))
     db.commit()
     db.refresh(recipe)
+
+    # Rating Method pseudocode: "NOTIFY Recipe Owner via Email"
+    owner = recipe.creator
+    if owner and owner.id != user.id:
+        send_new_rating_notification(owner.email, user.username, recipe.title, body.score)
+
     return {"message": "Rating submitted", "average_rating": recipe.average_rating}
 
 
@@ -108,6 +124,13 @@ def subscribe(creator_id: int, user: User = Depends(get_current_user), db: Sessi
 
     db.add(Subscription(subscriber_id=user.id, creator_id=creator_id))
     db.commit()
+
+    # Subscription Method pseudocode: "NOTIFY Recipe Owner via Email" —
+    # this is the "someone subscribed to you" email, distinct from
+    # notify_subscribers_of_new_recipe() below (that one fires when *this*
+    # creator later uploads, not at subscribe-time).
+    send_new_subscriber_notification(creator.email, user.username)
+
     return {"message": f"Subscribed to {creator.username}"}
 
 

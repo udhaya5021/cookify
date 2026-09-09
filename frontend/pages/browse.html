@@ -43,6 +43,10 @@
         <input type="range" id="f-min-difficulty" min="0" max="5" step="0.5" value="0" style="width:90px;"
           oninput="document.getElementById('f-min-difficulty-val').textContent = this.value" />
       </label>
+      <label>Min rating (<span id="f-min-rating-val">0</span>)
+        <input type="range" id="f-min-rating" min="0" max="5" step="0.5" value="0" style="width:90px;"
+          oninput="document.getElementById('f-min-rating-val').textContent = this.value" />
+      </label>
       <label>Sort by
         <select id="f-sort" style="width:130px; margin:0;">
           <option value="popularity">Popularity</option>
@@ -76,11 +80,13 @@ async function loadRecipes() {
   const cal = document.getElementById("f-calories").value;
   const minSpeed = document.getElementById("f-min-speed").value;
   const minDifficulty = document.getElementById("f-min-difficulty").value;
+  const minRating = document.getElementById("f-min-rating").value;
   if (cost) params.set("max_cost", cost);
   if (time) params.set("max_time", time);
   if (cal) params.set("max_calories", cal);
   if (minSpeed && minSpeed !== "0") params.set("min_speed", minSpeed);
   if (minDifficulty && minDifficulty !== "0") params.set("min_difficulty", minDifficulty);
+  if (minRating && minRating !== "0") params.set("min_rating", minRating);
 
   const data = await api(`/api/recipes?${params.toString()}`);
   const el = document.getElementById("results");

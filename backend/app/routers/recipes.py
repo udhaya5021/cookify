@@ -116,6 +116,7 @@ def search_recipes(
     max_calories: int | None = None,
     min_speed: float | None = None,
     min_difficulty: float | None = None,
+    min_rating: float | None = None,  # Recipe Search Method pseudocode: "Filter by Rating or Tags"
     dietary_tag: str = "",
     food_type: str = "",
     region: str = "",
@@ -147,6 +148,11 @@ def search_recipes(
             veg_only=veg_only,
         )
     ]
+
+    # average_rating is computed from the ratings relationship, not a plain
+    # column, so it's filtered here rather than inside matches_filters().
+    if min_rating is not None:
+        filtered = [r for r in filtered if r.average_rating >= min_rating]
 
     if sort == "popularity":
         filtered.sort(key=lambda r: r.view_count, reverse=True)

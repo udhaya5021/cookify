@@ -15,6 +15,7 @@
   <form id="signup-form">
     <input type="text" id="username" placeholder="Username" required />
     <input type="email" id="email" placeholder="Email" required />
+    <input type="tel" id="phone" placeholder="Phone Number" />
     <input type="password" id="password" placeholder="Password (9+ chars, no spaces)" required />
     <input type="password" id="confirm" placeholder="Confirm Password" required />
     <button class="btn" type="submit" style="width:100%;">Confirm Sign Up</button>
@@ -44,6 +45,7 @@ document.getElementById("signup-form").addEventListener("submit", async (e) => {
       body: {
         username: document.getElementById("username").value,
         email: document.getElementById("email").value,
+        phone_number: document.getElementById("phone").value,
         password,
       },
     });

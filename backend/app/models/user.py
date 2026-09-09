@@ -11,6 +11,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
     username = Column(String, unique=True, index=True, nullable=False)
+    phone_number = Column(String, default="")  # Sign Up Method pseudocode: INPUT UserID, Email, PhoneNumber
     password_hash = Column(String, nullable=False)
     first_name = Column(String, default="")
     last_name = Column(String, default="")

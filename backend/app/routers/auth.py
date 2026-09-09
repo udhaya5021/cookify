@@ -27,6 +27,7 @@ class SignupRequest(BaseModel):
     email: str
     username: str
     password: str
+    phone_number: str = ""
 
 
 class LoginRequest(BaseModel):
@@ -56,7 +57,10 @@ def signup(body: SignupRequest, db: Session = Depends(get_db)):
     if not is_password_valid(body.password):
         raise HTTPException(400, "Password must be at least 9 characters, no spaces or restricted symbols")
 
-    user = User(email=body.email, username=body.username, password_hash=hash_password(body.password))
+    user = User(
+        email=body.email, username=body.username, phone_number=body.phone_number,
+        password_hash=hash_password(body.password),
+    )
     db.add(user)
     db.flush()
     db.add(UserPreference(user_id=user.id))
