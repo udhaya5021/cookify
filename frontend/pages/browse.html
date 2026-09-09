@@ -23,6 +23,26 @@
       <label>Max time (min) <input type="number" id="f-time" /></label>
       <label>Max calories <input type="number" id="f-calories" /></label>
       <label><input type="checkbox" id="f-veg" style="width:auto;" /> Veg only</label>
+      <label>Dietary
+        <select id="f-dietary" style="width:130px; margin:0;">
+          <option value="">Any</option>
+          <option value="vegetarian">Vegetarian</option>
+          <option value="eggetarian">Eggetarian</option>
+          <option value="pescetarian">Pescetarian</option>
+          <option value="jain">Jain</option>
+          <option value="non_vegetarian">Non-Vegetarian</option>
+        </select>
+      </label>
+      <label>Food type <input type="text" id="f-food-type" placeholder="e.g. dessert" style="width:110px;" /></label>
+      <label>Cuisine <input type="text" id="f-region" placeholder="e.g. pan-Asian" style="width:110px;" /></label>
+      <label>Min speed (<span id="f-min-speed-val">0</span>)
+        <input type="range" id="f-min-speed" min="0" max="5" step="0.5" value="0" style="width:90px;"
+          oninput="document.getElementById('f-min-speed-val').textContent = this.value" />
+      </label>
+      <label>Min difficulty (<span id="f-min-difficulty-val">0</span>)
+        <input type="range" id="f-min-difficulty" min="0" max="5" step="0.5" value="0" style="width:90px;"
+          oninput="document.getElementById('f-min-difficulty-val').textContent = this.value" />
+      </label>
       <label>Sort by
         <select id="f-sort" style="width:130px; margin:0;">
           <option value="popularity">Popularity</option>
@@ -46,14 +66,21 @@ async function loadRecipes() {
     ingredient: document.getElementById("f-ingredient").value,
     utensil: document.getElementById("f-utensil").value,
     veg_only: document.getElementById("f-veg").checked,
+    dietary_tag: document.getElementById("f-dietary").value,
+    food_type: document.getElementById("f-food-type").value,
+    region: document.getElementById("f-region").value,
     sort: document.getElementById("f-sort").value,
   });
   const cost = document.getElementById("f-cost").value;
   const time = document.getElementById("f-time").value;
   const cal = document.getElementById("f-calories").value;
+  const minSpeed = document.getElementById("f-min-speed").value;
+  const minDifficulty = document.getElementById("f-min-difficulty").value;
   if (cost) params.set("max_cost", cost);
   if (time) params.set("max_time", time);
   if (cal) params.set("max_calories", cal);
+  if (minSpeed && minSpeed !== "0") params.set("min_speed", minSpeed);
+  if (minDifficulty && minDifficulty !== "0") params.set("min_difficulty", minDifficulty);
 
   const data = await api(`/api/recipes?${params.toString()}`);
   const el = document.getElementById("results");
@@ -68,7 +95,8 @@ async function loadRecipes() {
       ${r.media_url ? `<img class="thumb" src="${API_BASE}${r.media_url}" />` : ""}
       <span class="badge ${r.recipe_type === 'veg' ? 'veg' : 'nonveg'}">${r.recipe_type === 'veg' ? 'Veg' : 'Non-Veg'}</span>
       <div class="title">${r.title}</div>
-      <div class="meta">By ${r.creator_username || 'Unknown'}</div>
+      <div class="meta">By ${r.creator_username || 'Unknown'}${r.food_type ? ' · ' + r.food_type : ''}${r.region ? ' · ' + r.region : ''}</div>
+      <div class="meta">Speed ${r.speed}/5 · Difficulty ${r.difficulty}/5</div>
       <div class="rating">${r.rating_count} ratings | Avg ${r.average_rating}</div>
       <a class="btn small" href="recipe.html?id=${r.id}">Open recipe</a>
     </div>

@@ -38,12 +38,14 @@ const recipeId = new URLSearchParams(window.location.search).get("id");
 async function loadRecipe() {
   const r = await api(`/api/recipes/${recipeId}`);
   document.getElementById("recipe").innerHTML = `
-    <span class="badge ${r.recipe_type === 'veg' ? 'veg' : 'nonveg'}">${r.recipe_type === 'veg' ? 'Veg' : 'Non-Veg'}</span>
+    <span class="badge ${r.recipe_type === 'veg' ? 'veg' : 'nonveg'}">${r.dietary_tag.replace('_', ' ')}</span>
     <h1>${r.title}</h1>
     <div class="meta">
       By <a href="profile.html?id=${r.creator_id}">${r.creator_username}</a>
       · ${r.view_count} views · ${r.rating_count} ratings | Avg ${r.average_rating}
+      ${r.food_type ? ' · ' + r.food_type : ''}${r.region ? ' · ' + r.region : ''}
     </div>
+    <div class="meta">Speed: ${r.speed}/5 · Difficulty: ${r.difficulty}/5</div>
     ${r.media_url ? `<img class="thumb" style="height:280px; margin-top:12px;" src="${API_BASE}${r.media_url}" />` : ""}
     <p style="margin-top:14px;"><strong>Ingredients:</strong> ${r.ingredients}</p>
     <p><strong>Utensils:</strong> ${r.utensils || "—"}</p>

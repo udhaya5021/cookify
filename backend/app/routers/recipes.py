@@ -17,6 +17,12 @@ UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "..", "static", "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 _ALLOWED_MEDIA_EXT = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".mp4", ".webm"}
 
+# Test case 5 asks for a dropdown beyond a plain veg/non-veg boolean. This
+# also drives which polymorphic subclass gets created (see upload_recipe),
+# so the OOP split and the dietary dropdown stay consistent with each other.
+DIETARY_TAGS = ["vegetarian", "eggetarian", "pescetarian", "jain", "non_vegetarian"]
+_VEG_TAGS = {"vegetarian", "eggetarian", "jain"}  # map to VegRecipe; rest -> NonVegRecipe
+
 
 def _serialize(r: Recipe) -> dict:
     return {
@@ -30,6 +36,11 @@ def _serialize(r: Recipe) -> dict:
         "cooking_time_minutes": r.cooking_time_minutes,
         "calories": r.calories,
         "protein": r.protein,
+        "speed": r.speed,
+        "difficulty": r.difficulty,
+        "dietary_tag": r.dietary_tag,
+        "food_type": r.food_type,
+        "region": r.region,
         "view_count": r.view_count,
         "recipe_type": r.recipe_type,  # "veg" | "nonveg"
         "creator_id": r.creator_id,
@@ -49,13 +60,19 @@ async def upload_recipe(
     cooking_time_minutes: int = Form(0),
     calories: int = Form(0),
     protein: int = Form(0),
-    is_veg: bool = Form(...),
+    speed: float = Form(3.0),
+    difficulty: float = Form(3.0),
+    dietary_tag: str = Form("vegetarian"),
+    food_type: str = Form(""),
+    region: str = Form(""),
     media: UploadFile | None = File(None),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     if not title.strip() or not ingredients.strip() or not steps.strip():
         raise HTTPException(400, "Error: All fields must be filled")
+    if dietary_tag not in DIETARY_TAGS:
+        raise HTTPException(400, f"Error: dietary_tag must be one of {DIETARY_TAGS}")
 
     media_url = ""
     if media is not None:
@@ -70,11 +87,12 @@ async def upload_recipe(
 
     # Polymorphism in action: the subclass is chosen at creation time, and
     # each instance carries its own matches_filters() override from here on.
-    RecipeClass = VegRecipe if is_veg else NonVegRecipe
+    RecipeClass = VegRecipe if dietary_tag in _VEG_TAGS else NonVegRecipe
     recipe = RecipeClass(
         title=title, ingredients=ingredients, utensils=utensils, steps=steps,
         media_url=media_url, cost=cost, cooking_time_minutes=cooking_time_minutes,
-        calories=calories, protein=protein, creator_id=user.id,
+        calories=calories, protein=protein, speed=speed, difficulty=difficulty,
+        dietary_tag=dietary_tag, food_type=food_type, region=region, creator_id=user.id,
     )
     db.add(recipe)
     db.commit()
@@ -96,6 +114,11 @@ def search_recipes(
     max_cost: float | None = None,
     max_time: int | None = None,
     max_calories: int | None = None,
+    min_speed: float | None = None,
+    min_difficulty: float | None = None,
+    dietary_tag: str = "",
+    food_type: str = "",
+    region: str = "",
     veg_only: bool = False,
     sort: str = "popularity",  # "popularity" | "newest" | "rating"
     db: Session = Depends(get_db),
@@ -117,7 +140,12 @@ def search_recipes(
     # matches_filters() override for the numeric constraints.
     filtered = [
         r for r in results
-        if r.matches_filters(max_cost=max_cost, max_time=max_time, max_calories=max_calories, veg_only=veg_only)
+        if r.matches_filters(
+            max_cost=max_cost, max_time=max_time, max_calories=max_calories,
+            min_speed=min_speed, min_difficulty=min_difficulty,
+            dietary_tag=dietary_tag, food_type=food_type, region=region,
+            veg_only=veg_only,
+        )
     ]
 
     if sort == "popularity":

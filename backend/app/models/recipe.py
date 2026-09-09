@@ -25,6 +25,14 @@ class Recipe(Base):
     calories = Column(Integer, default=0)              # nutrition filter
     protein = Column(Integer, default=0)
 
+    # Test case 4 explicitly lists these as required search filters; test
+    # case 5 asks for a dietary dropdown beyond a plain veg/non-veg flag.
+    speed = Column(Float, default=3.0)                 # 0.5-5 star rating
+    difficulty = Column(Float, default=3.0)            # 0.5-5 star rating
+    dietary_tag = Column(String, default="vegetarian") # vegetarian/eggetarian/pescetarian/jain/non_vegetarian
+    food_type = Column(String, default="")             # appetizer/bread/dessert/main course/etc.
+    region = Column(String, default="")                # cuisine — "pan-Asian", "English", etc.
+
     view_count = Column(Integer, default=0)            # drives "popularity" sort
     creator_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -48,7 +56,11 @@ class Recipe(Base):
             return 0.0
         return round(sum(r.score for r in self.ratings) / len(self.ratings), 1)
 
-    def matches_filters(self, *, max_cost=None, max_time=None, max_calories=None) -> bool:
+    def matches_filters(
+        self, *, max_cost=None, max_time=None, max_calories=None,
+        min_speed=None, min_difficulty=None, dietary_tag=None,
+        food_type=None, region=None,
+    ) -> bool:
         """Polymorphism point: subclasses can override this to add their own
         filter rules (e.g. VegRecipe could reject a `veg_only=False` search)."""
         if max_cost is not None and self.cost > max_cost:
@@ -56,6 +68,16 @@ class Recipe(Base):
         if max_time is not None and self.cooking_time_minutes > max_time:
             return False
         if max_calories is not None and self.calories > max_calories:
+            return False
+        if min_speed is not None and self.speed < min_speed:
+            return False
+        if min_difficulty is not None and self.difficulty < min_difficulty:
+            return False
+        if dietary_tag and self.dietary_tag != dietary_tag:
+            return False
+        if food_type and self.food_type.lower() != food_type.lower():
+            return False
+        if region and self.region.lower() != region.lower():
             return False
         return True
 

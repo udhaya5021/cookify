@@ -27,10 +27,26 @@
       <input type="number" id="protein" placeholder="Protein (g)" />
     </div>
 
-    <select id="is_veg">
-      <option value="true">Vegetarian</option>
-      <option value="false">Non-Vegetarian</option>
+    <select id="dietary_tag">
+      <option value="vegetarian">Vegetarian</option>
+      <option value="eggetarian">Eggetarian</option>
+      <option value="pescetarian">Pescetarian</option>
+      <option value="jain">Jain</option>
+      <option value="non_vegetarian">Non-Vegetarian</option>
     </select>
+
+    <div style="display:flex; gap:10px;">
+      <input type="text" id="food_type" placeholder="Food type (appetizer, bread, dessert...)" />
+      <input type="text" id="region" placeholder="Cuisine (pan-Asian, English...)" />
+    </div>
+
+    <label style="font-size:13px; display:block; margin:6px 0 2px;">Speed: <span id="speed-val">3.0</span> / 5</label>
+    <input type="range" id="speed" min="0.5" max="5" step="0.5" value="3" style="border-radius:0; background:transparent; padding:0; margin-bottom:14px;"
+      oninput="document.getElementById('speed-val').textContent = this.value" />
+
+    <label style="font-size:13px; display:block; margin:6px 0 2px;">Difficulty: <span id="difficulty-val">3.0</span> / 5</label>
+    <input type="range" id="difficulty" min="0.5" max="5" step="0.5" value="3" style="border-radius:0; background:transparent; padding:0; margin-bottom:14px;"
+      oninput="document.getElementById('difficulty-val').textContent = this.value" />
 
     <input type="file" id="media" accept="image/*,video/*" style="border-radius:8px; background:transparent; border:1px dashed var(--border);" />
 
@@ -58,7 +74,11 @@ document.getElementById("upload-form").addEventListener("submit", async (e) => {
   form.append("cooking_time_minutes", document.getElementById("time").value || 0);
   form.append("calories", document.getElementById("calories").value || 0);
   form.append("protein", document.getElementById("protein").value || 0);
-  form.append("is_veg", document.getElementById("is_veg").value);
+  form.append("dietary_tag", document.getElementById("dietary_tag").value);
+  form.append("food_type", document.getElementById("food_type").value);
+  form.append("region", document.getElementById("region").value);
+  form.append("speed", document.getElementById("speed").value);
+  form.append("difficulty", document.getElementById("difficulty").value);
   const media = document.getElementById("media").files[0];
   if (media) form.append("media", media);
 
