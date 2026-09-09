@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cookify — Chat</title>
+<link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+<div id="navbar"></div>
+
+<div class="container">
+  <div class="recipe-detail">
+    <h1>Chat</h1>
+    <p class="meta" style="margin-bottom:14px;">Chatting with user #<span id="other-id"></span></p>
+    <div id="messages" style="max-height:400px; overflow-y:auto; margin-bottom:16px;"></div>
+    <form id="send-form" style="display:flex; gap:10px;">
+      <input type="text" id="text" placeholder="Type a message..." style="margin:0;" required />
+      <button class="btn small" type="submit">Send</button>
+    </form>
+  </div>
+</div>
+
+<div id="footer"></div>
+<script src="../js/api.js"></script>
+<script src="../js/navbar.js"></script>
+<script>
+requireAuth();
+const otherId = new URLSearchParams(window.location.search).get("user");
+document.getElementById("other-id").textContent = otherId;
+
+async function loadMessages() {
+  const messages = await api(`/api/chat/with/${otherId}`, { auth: true });
+  const myId = getMyUserId();
+  document.getElementById("messages").innerHTML = messages.map(m => `
+    <div style="text-align:${m.sender_id === myId ? 'right' : 'left'}; margin:6px 0;">
+      <span style="background:${m.sender_id === myId ? 'var(--accent)' : '#eee'}; color:${m.sender_id === myId ? '#fff' : '#000'};
+        padding:8px 14px; border-radius:14px; display:inline-block;">${m.text}</span>
+    </div>`).join("");
+}
+
+document.getElementById("send-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const text = document.getElementById("text").value;
+  await api("/api/chat/send", { method: "POST", auth: true, body: { recipient_id: parseInt(otherId, 10), text } });
+  document.getElementById("text").value = "";
+  loadMessages();
+});
+
+loadMessages();
+setInterval(loadMessages, 4000); // simple polling — see chat.py router for the tradeoff note
+</script>
+</body>
+</html>

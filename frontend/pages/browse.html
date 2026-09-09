@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cookify — Explore Recipes</title>
+<link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+<div id="navbar"></div>
+
+<div class="container">
+  <div class="search-panel">
+    <h1 style="text-align:center; margin-bottom:16px;">Explore Recipes</h1>
+    <div class="search-row">
+      <input type="text" id="q" placeholder="Search recipe title..." />
+      <button class="btn" id="search-btn">Search</button>
+    </div>
+    <div class="filters">
+      <label>Ingredient <input type="text" id="f-ingredient" placeholder="e.g. chicken" style="width:120px;" /></label>
+      <label>Utensil <input type="text" id="f-utensil" placeholder="e.g. oven" style="width:120px;" /></label>
+      <label>Max cost (₹) <input type="number" id="f-cost" /></label>
+      <label>Max time (min) <input type="number" id="f-time" /></label>
+      <label>Max calories <input type="number" id="f-calories" /></label>
+      <label><input type="checkbox" id="f-veg" style="width:auto;" /> Veg only</label>
+      <label>Sort by
+        <select id="f-sort" style="width:130px; margin:0;">
+          <option value="popularity">Popularity</option>
+          <option value="rating">Top rated</option>
+          <option value="newest">Newest</option>
+        </select>
+      </label>
+    </div>
+  </div>
+
+  <div id="results" class="recipe-grid"></div>
+</div>
+
+<div id="footer"></div>
+<script src="../js/api.js"></script>
+<script src="../js/navbar.js"></script>
+<script>
+async function loadRecipes() {
+  const params = new URLSearchParams({
+    q: document.getElementById("q").value,
+    ingredient: document.getElementById("f-ingredient").value,
+    utensil: document.getElementById("f-utensil").value,
+    veg_only: document.getElementById("f-veg").checked,
+    sort: document.getElementById("f-sort").value,
+  });
+  const cost = document.getElementById("f-cost").value;
+  const time = document.getElementById("f-time").value;
+  const cal = document.getElementById("f-calories").value;
+  if (cost) params.set("max_cost", cost);
+  if (time) params.set("max_time", time);
+  if (cal) params.set("max_calories", cal);
+
+  const data = await api(`/api/recipes?${params.toString()}`);
+  const el = document.getElementById("results");
+
+  if (data.recipes.length === 0) {
+    el.innerHTML = `<div class="empty-state">No recipes match your search.</div>`;
+    return;
+  }
+
+  el.innerHTML = data.recipes.map(r => `
+    <div class="recipe-card ${r.recipe_type === 'veg' ? 'veg' : ''}">
+      ${r.media_url ? `<img class="thumb" src="${API_BASE}${r.media_url}" />` : ""}
+      <span class="badge ${r.recipe_type === 'veg' ? 'veg' : 'nonveg'}">${r.recipe_type === 'veg' ? 'Veg' : 'Non-Veg'}</span>
+      <div class="title">${r.title}</div>
+      <div class="meta">By ${r.creator_username || 'Unknown'}</div>
+      <div class="rating">${r.rating_count} ratings | Avg ${r.average_rating}</div>
+      <a class="btn small" href="recipe.html?id=${r.id}">Open recipe</a>
+    </div>
+  `).join("");
+}
+
+document.getElementById("search-btn").addEventListener("click", loadRecipes);
+document.addEventListener("DOMContentLoaded", loadRecipes);
+</script>
+</body>
+</html>

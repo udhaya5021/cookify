@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cookify — Login</title>
+<link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+<div id="navbar"></div>
+
+<div class="form-card">
+  <h1>Login</h1>
+  <div id="alert"></div>
+
+  <form id="login-form">
+    <input type="text" id="identifier" placeholder="Username / Email / Phone Number" required />
+    <input type="password" id="password" placeholder="Password" required />
+    <label style="display:flex; align-items:center; gap:8px; font-size:13px; margin-bottom:14px;">
+      <input type="checkbox" id="remember" style="width:auto; margin:0;" />
+      Remember this device
+    </label>
+    <button class="btn" type="submit" style="width:100%;">Confirm Login</button>
+  </form>
+
+  <form id="otp-form" style="display:none;">
+    <p style="margin-bottom:12px; font-size:14px;">A 6-digit code was emailed to you.</p>
+    <input type="text" id="otp" placeholder="2FA OTP" required />
+    <button class="btn" type="submit" style="width:100%;">Verify Code</button>
+  </form>
+
+  <p class="form-note"><a href="forgot-password.html">Forgot password?</a></p>
+  <p class="form-note">Don't have an account? <a href="signup.html">Sign up</a></p>
+</div>
+
+<div id="footer"></div>
+<script src="../js/api.js"></script>
+<script src="../js/navbar.js"></script>
+<script>
+let pendingEmail = "";
+
+document.getElementById("login-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const alertEl = document.getElementById("alert");
+  alertEl.innerHTML = "";
+  try {
+    const res = await api("/api/auth/login", {
+      method: "POST",
+      body: {
+        identifier: document.getElementById("identifier").value,
+        password: document.getElementById("password").value,
+        device_token: getDeviceToken(),
+      },
+    });
+    if (res.requires_otp) {
+      pendingEmail = res.email;
+      document.getElementById("login-form").style.display = "none";
+      document.getElementById("otp-form").style.display = "block";
+    } else {
+      setToken(res.access_token);
+      window.location.href = "browse.html";
+    }
+  } catch (err) {
+    alertEl.innerHTML = `<div class="alert error">${err.message}</div>`;
+  }
+});
+
+document.getElementById("otp-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const alertEl = document.getElementById("alert");
+  try {
+    const res = await api("/api/auth/verify-otp", {
+      method: "POST",
+      body: {
+        email: pendingEmail,
+        otp: document.getElementById("otp").value,
+        remember_device: document.getElementById("remember").checked,
+      },
+    });
+    setToken(res.access_token);
+    if (res.device_token) setDeviceToken(res.device_token);
+    window.location.href = "browse.html";
+  } catch (err) {
+    alertEl.innerHTML = `<div class="alert error">${err.message}</div>`;
+  }
+});
+</script>
+</body>
+</html>

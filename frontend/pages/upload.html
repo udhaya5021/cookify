@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cookify — Upload Recipe</title>
+<link rel="stylesheet" href="../css/style.css" />
+</head>
+<body>
+<div id="navbar"></div>
+
+<div class="form-card" style="max-width:520px;">
+  <h1>Upload Recipe</h1>
+  <div id="alert"></div>
+  <form id="upload-form">
+    <input type="text" id="title" placeholder="Recipe title" required />
+    <textarea id="ingredients" rows="3" placeholder="Ingredients (comma-separated)" required></textarea>
+    <input type="text" id="utensils" placeholder="Required utensils/equipment" />
+    <textarea id="steps" rows="6" placeholder="Steps — one per line" required></textarea>
+
+    <div style="display:flex; gap:10px;">
+      <input type="number" id="cost" placeholder="Cost (₹)" />
+      <input type="number" id="time" placeholder="Cook time (min)" />
+    </div>
+    <div style="display:flex; gap:10px;">
+      <input type="number" id="calories" placeholder="Calories" />
+      <input type="number" id="protein" placeholder="Protein (g)" />
+    </div>
+
+    <select id="is_veg">
+      <option value="true">Vegetarian</option>
+      <option value="false">Non-Vegetarian</option>
+    </select>
+
+    <input type="file" id="media" accept="image/*,video/*" style="border-radius:8px; background:transparent; border:1px dashed var(--border);" />
+
+    <button class="btn" type="submit" style="width:100%; margin-top:14px;">Submit Recipe</button>
+  </form>
+</div>
+
+<div id="footer"></div>
+<script src="../js/api.js"></script>
+<script src="../js/navbar.js"></script>
+<script>
+requireAuth();
+
+document.getElementById("upload-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const alertEl = document.getElementById("alert");
+  alertEl.innerHTML = "";
+
+  const form = new FormData();
+  form.append("title", document.getElementById("title").value);
+  form.append("ingredients", document.getElementById("ingredients").value);
+  form.append("utensils", document.getElementById("utensils").value);
+  form.append("steps", document.getElementById("steps").value);
+  form.append("cost", document.getElementById("cost").value || 0);
+  form.append("cooking_time_minutes", document.getElementById("time").value || 0);
+  form.append("calories", document.getElementById("calories").value || 0);
+  form.append("protein", document.getElementById("protein").value || 0);
+  form.append("is_veg", document.getElementById("is_veg").value);
+  const media = document.getElementById("media").files[0];
+  if (media) form.append("media", media);
+
+  try {
+    const res = await api("/api/recipes", { method: "POST", auth: true, form });
+    window.location.href = `recipe.html?id=${res.recipe.id}`;
+  } catch (err) {
+    alertEl.innerHTML = `<div class="alert error">${err.message}</div>`;
+  }
+});
+</script>
+</body>
+</html>

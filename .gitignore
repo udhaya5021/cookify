@@ -1,0 +1,14 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# SQLite database (created at runtime)
+backend/cookify.db
+
+# Uploaded media (created at runtime)
+backend/app/static/uploads/*
+!backend/app/static/uploads/.gitkeep
+
+# OS
+.DS_Store
