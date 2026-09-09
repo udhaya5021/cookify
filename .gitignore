@@ -10,5 +10,9 @@ backend/cookify.db
 backend/app/static/uploads/*
 !backend/app/static/uploads/.gitkeep
 
+# React frontend
+frontend-react/node_modules/
+frontend-react/dist/
+
 # OS
 .DS_Store

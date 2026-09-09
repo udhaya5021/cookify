@@ -45,10 +45,17 @@ def health():
     return {"status": "ok"}
 
 
-# Serve the frontend from this same app/port. Kept last so it never shadows
-# the API routes above (FastAPI matches path operations before a "/" mount).
-# Also sidesteps needing two separate origins for local dev — one process,
-# one port, frontend and API both same-origin.
-_FRONTEND_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend"))
+# Serve the React production build from this same app/port. Kept last so it
+# never shadows the API routes above (FastAPI matches path operations before
+# a "/" mount). Also sidesteps needing two separate origins for local dev —
+# one process, one port, frontend and API both same-origin.
+#
+# The React app uses HashRouter (not BrowserRouter) specifically so this
+# plain static mount works correctly — with real client-side routes
+# (BrowserRouter), navigating straight to e.g. /recipe/5 would 404 here,
+# since StaticFiles just serves files and has no SPA-fallback-to-index.html
+# logic. HashRouter keeps all routing state after a "#", so every route
+# resolves to this same index.html regardless.
+_FRONTEND_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend-react", "dist"))
 if os.path.isdir(_FRONTEND_DIR):
     app.mount("/", StaticFiles(directory=_FRONTEND_DIR, html=True), name="frontend")
