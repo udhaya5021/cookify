@@ -156,7 +156,9 @@ def search_recipes(
         filtered = [r for r in filtered if r.average_rating >= min_rating]
 
     if sort == "popularity":
-        filtered.sort(key=lambda r: r.view_count, reverse=True)
+        # Test case 6: "Highest rated/most viewed recipes appear first" —
+        # sort by views, then break ties by most recent upload.
+        filtered.sort(key=lambda r: (r.view_count, r.created_at), reverse=True)
     elif sort == "rating":
         filtered.sort(key=lambda r: r.average_rating, reverse=True)
     else:

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import StarRating from "../components/StarRating";
 import { api, API_BASE, getMyUserId } from "../api";
 
 export default function Profile() {
@@ -76,7 +77,7 @@ export default function Profile() {
             : profile.uploaded_recipes.map((r) => (
               <div key={r.id} className={`recipe-card ${r.recipe_type === "veg" ? "veg" : ""}`}>
                 <div className="title">{r.title}</div>
-                <div className="rating">{r.rating_count} ratings | Avg {r.average_rating}</div>
+                <StarRating average={r.average_rating} count={r.rating_count} />
                 <Link className="btn small" to={`/recipe/${r.id}`}>Open recipe</Link>
               </div>
             ))}
@@ -90,7 +91,7 @@ export default function Profile() {
             : profile.saved_recipes.map((r) => (
               <div key={r.id} className="recipe-card saved">
                 <div className="title">{r.title}</div>
-                <div className="rating">{r.rating_count} ratings | Avg {r.average_rating}</div>
+                <StarRating average={r.average_rating} count={r.rating_count} />
                 <Link className="btn small secondary" to={`/recipe/${r.id}`}>Open recipe</Link>
               </div>
             ))}

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import StarRating from "../components/StarRating";
 import { api, API_BASE } from "../api";
 
 export default function Browse() {
@@ -97,7 +98,7 @@ export default function Browse() {
               <div className="title">{r.title}</div>
               <div className="meta">By {r.creator_username || "Unknown"}{r.food_type ? " · " + r.food_type : ""}{r.region ? " · " + r.region : ""}</div>
               <div className="meta">Speed {r.speed}/5 · Difficulty {r.difficulty}/5</div>
-              <div className="rating">{r.rating_count} ratings | Avg {r.average_rating}</div>
+              <StarRating average={r.average_rating} count={r.rating_count} />
               <Link className="btn small" to={`/recipe/${r.id}`}>Open recipe</Link>
             </div>
           ))}

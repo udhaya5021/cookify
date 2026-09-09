@@ -3,6 +3,9 @@
 __pycache__/
 *.pyc
 
+# Secrets
+backend/.env
+
 # SQLite database (created at runtime)
 backend/cookify.db
 

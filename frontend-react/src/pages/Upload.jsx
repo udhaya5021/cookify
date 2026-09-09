@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-import { api } from "../api";
+import StarPicker from "../components/StarPicker";
+import { api, API_BASE } from "../api";
 
 const DIETARY_OPTIONS = [
   ["vegetarian", "Vegetarian"], ["eggetarian", "Eggetarian"], ["pescetarian", "Pescetarian"],
@@ -28,7 +29,24 @@ export default function Upload() {
   const [speed, setSpeed] = useState(3);
   const [difficulty, setDifficulty] = useState(3);
   const [media, setMedia] = useState(null);
+  const [mediaPreview, setMediaPreview] = useState(null);
+  const [existingMediaUrl, setExistingMediaUrl] = useState(null);
+  const [dragActive, setDragActive] = useState(false);
   const [alert, setAlert] = useState("");
+  const fileInputRef = useRef(null);
+
+  function pickMedia(file) {
+    if (!file) return;
+    setMedia(file);
+    setExistingMediaUrl(null); // a freshly picked file replaces whatever was there before
+    if (file.type.startsWith("image/")) {
+      setMediaPreview(URL.createObjectURL(file));
+    } else {
+      setMediaPreview(null); // video — show filename only, no thumbnail
+    }
+  }
+
+  const _IMAGE_EXT = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
 
   useEffect(() => {
     if (!editId) return;
@@ -37,6 +55,7 @@ export default function Upload() {
       setSteps(r.steps); setCost(r.cost); setTime(r.cooking_time_minutes);
       setCalories(r.calories); setProtein(r.protein); setDietaryTag(r.dietary_tag);
       setFoodType(r.food_type); setRegion(r.region); setSpeed(r.speed); setDifficulty(r.difficulty);
+      if (r.media_url) setExistingMediaUrl(r.media_url);
     });
   }, [editId]);
 
@@ -99,19 +118,43 @@ export default function Upload() {
             <input type="text" placeholder="Cuisine (pan-Asian, English...)" value={region} onChange={(e) => setRegion(e.target.value)} />
           </div>
 
-          <label style={{ fontSize: 13, display: "block", margin: "6px 0 2px" }}>Speed: {speed} / 5</label>
-          <input type="range" min="0.5" max="5" step="0.5" value={speed}
-            style={{ borderRadius: 0, background: "transparent", padding: 0, marginBottom: 14 }}
-            onChange={(e) => setSpeed(e.target.value)} />
+          <StarPicker label="Speed" value={Number(speed)} onChange={setSpeed} />
+          <StarPicker label="Difficulty" value={Number(difficulty)} onChange={setDifficulty} />
 
-          <label style={{ fontSize: 13, display: "block", margin: "6px 0 2px" }}>Difficulty: {difficulty} / 5</label>
-          <input type="range" min="0.5" max="5" step="0.5" value={difficulty}
-            style={{ borderRadius: 0, background: "transparent", padding: 0, marginBottom: 14 }}
-            onChange={(e) => setDifficulty(e.target.value)} />
-
-          <input type="file" accept="image/*,video/*"
-            style={{ borderRadius: 8, background: "transparent", border: "1px dashed var(--border)" }}
-            onChange={(e) => setMedia(e.target.files[0])} />
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+            onDragLeave={() => setDragActive(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragActive(false);
+              pickMedia(e.dataTransfer.files?.[0]);
+            }}
+            style={{
+              border: `2px dashed ${dragActive ? "var(--accent)" : "var(--border)"}`,
+              borderRadius: 14,
+              background: dragActive ? "#fdf1e2" : "#f6efe1",
+              padding: (mediaPreview || (existingMediaUrl && _IMAGE_EXT.some((ext) => existingMediaUrl.endsWith(ext)))) ? 0 : 28,
+              textAlign: "center",
+              cursor: "pointer",
+              marginBottom: 14,
+              overflow: "hidden",
+            }}
+          >
+            {mediaPreview ? (
+              <img src={mediaPreview} alt="Preview" style={{ width: "100%", maxHeight: 220, objectFit: "cover", display: "block" }} />
+            ) : media ? (
+              <div style={{ color: "var(--text-muted)" }}>{media.name} selected</div>
+            ) : existingMediaUrl && _IMAGE_EXT.some((ext) => existingMediaUrl.endsWith(ext)) ? (
+              <img src={`${API_BASE}${existingMediaUrl}`} alt="Current" style={{ width: "100%", maxHeight: 220, objectFit: "cover", display: "block" }} />
+            ) : existingMediaUrl ? (
+              <div style={{ color: "var(--text-muted)" }}>Current video attached — click or drop to replace</div>
+            ) : (
+              <div style={{ color: "var(--text-muted)" }}>Drag and drop an image or video, or click to choose a file</div>
+            )}
+            <input ref={fileInputRef} type="file" accept="image/*,video/*" hidden
+              onChange={(e) => pickMedia(e.target.files[0])} />
+          </div>
 
           <button className="btn" type="submit" style={{ width: "100%", marginTop: 14 }}>
             {editId ? "Save Changes" : "Submit Recipe"}

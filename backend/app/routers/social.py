@@ -70,7 +70,19 @@ def post_comment(
 @router.get("/recipes/{recipe_id}/comments")
 def list_comments(recipe_id: int, db: Session = Depends(get_db)):
     comments = db.query(Comment).filter(Comment.recipe_id == recipe_id).order_by(Comment.created_at.desc()).all()
-    return [{"id": c.id, "user_id": c.user_id, "text": c.text, "created_at": c.created_at.isoformat()} for c in comments]
+    user_ids = {c.user_id for c in comments}
+    usernames = {
+        u.id: u.username
+        for u in db.query(User).filter(User.id.in_(user_ids)).all()
+    } if user_ids else {}
+    return [
+        {
+            "id": c.id, "user_id": c.user_id,
+            "username": usernames.get(c.user_id, f"User #{c.user_id}"),
+            "text": c.text, "created_at": c.created_at.isoformat(),
+        }
+        for c in comments
+    ]
 
 
 # ── Ratings ──────────────────────────────────────────────────────────────

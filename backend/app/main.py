@@ -4,9 +4,14 @@ Entry point: creates the FastAPI app, wires up all routers, mounts uploaded
 media as static files, and creates the SQLite tables on startup.
 """
 import os
-from fastapi import FastAPI
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from app.database import Base, engine
 from app import models  # noqa: F401 — import registers all models with Base
@@ -45,17 +50,25 @@ def health():
     return {"status": "ok"}
 
 
-# Serve the React production build from this same app/port. Kept last so it
-# never shadows the API routes above (FastAPI matches path operations before
-# a "/" mount). Also sidesteps needing two separate origins for local dev —
-# one process, one port, frontend and API both same-origin.
+# Serve the React production build from this same app/port. Also sidesteps
+# needing two separate origins for local dev — one process, one port,
+# frontend and API both same-origin.
 #
-# The React app uses HashRouter (not BrowserRouter) specifically so this
-# plain static mount works correctly — with real client-side routes
-# (BrowserRouter), navigating straight to e.g. /recipe/5 would 404 here,
-# since StaticFiles just serves files and has no SPA-fallback-to-index.html
-# logic. HashRouter keeps all routing state after a "#", so every route
-# resolves to this same index.html regardless.
+# The React app uses BrowserRouter (clean URLs, no "#"), so a direct
+# navigation/refresh on a client-side route like /recipe/5 or /profile/3
+# reaches the server as a literal path it has no file for. The catch-all
+# below handles that: serve a real file under dist/ if one exists at that
+# path (JS/CSS/assets/favicon), otherwise fall back to index.html so React
+# Router can take over and resolve the route client-side. Registered last so
+# it never shadows the /api/* routes above.
 _FRONTEND_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend-react", "dist"))
+
 if os.path.isdir(_FRONTEND_DIR):
-    app.mount("/", StaticFiles(directory=_FRONTEND_DIR, html=True), name="frontend")
+    app.mount("/assets", StaticFiles(directory=os.path.join(_FRONTEND_DIR, "assets")), name="frontend-assets")
+
+    @app.get("/{full_path:path}")
+    def serve_frontend(full_path: str, request: Request):
+        candidate = os.path.normpath(os.path.join(_FRONTEND_DIR, full_path))
+        if candidate.startswith(_FRONTEND_DIR) and os.path.isfile(candidate):
+            return FileResponse(candidate)
+        return FileResponse(os.path.join(_FRONTEND_DIR, "index.html"))

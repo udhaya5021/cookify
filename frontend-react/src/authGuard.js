@@ -6,7 +6,7 @@ import { getToken } from "./api";
 
 export function requireAuthOrAlert() {
   if (!getToken()) {
-    window.location.href = "/#/login";
+    window.location.href = "/login";
     return false;
   }
   return true;

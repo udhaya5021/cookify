@@ -1,8 +1,11 @@
 import { Link } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import { getToken } from "../api";
 
 export default function Home() {
+  const loggedIn = !!getToken();
+
   return (
     <>
       <Navbar />
@@ -11,8 +14,14 @@ export default function Home() {
         <p style={{ color: "var(--text-muted)", marginBottom: 24 }}>
           Discover, share, and rate recipes from home cooks.
         </p>
-        <Link className="btn" to="/login" style={{ display: "block", marginBottom: 14 }}>Login</Link>
-        <Link className="btn secondary" to="/signup" style={{ display: "block" }}>Sign Up</Link>
+        {loggedIn ? (
+          <Link className="btn" to="/browse" style={{ display: "block" }}>Browse Recipes</Link>
+        ) : (
+          <>
+            <Link className="btn" to="/login" style={{ display: "block", marginBottom: 14 }}>Login</Link>
+            <Link className="btn secondary" to="/signup" style={{ display: "block" }}>Sign Up</Link>
+          </>
+        )}
       </div>
       <Footer />
     </>

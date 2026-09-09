@@ -107,7 +107,7 @@ export default function Recipe() {
           <h3 style={{ marginTop: 16 }}>Steps</h3>
           <div className="steps">{recipe.steps}</div>
           <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-            <button className="btn secondary small" onClick={handleSubscribe}>Subscribe to {recipe.creator_username}</button>
+            {!isOwner && <button className="btn secondary small" onClick={handleSubscribe}>Subscribe to {recipe.creator_username}</button>}
             <button className="btn secondary small" onClick={handleSave}>{saveLabel}</button>
             <button className="btn secondary small" onClick={handleShare}>Share Recipe</button>
             {isOwner && <Link className="btn secondary small" to={`/upload?id=${recipe.id}`}>Edit recipe</Link>}
@@ -131,7 +131,7 @@ export default function Recipe() {
             ? <div className="empty-state">No comments yet — be the first.</div>
             : comments.map((c) => (
               <div key={c.id} className="comment">
-                <div className="user">User #{c.user_id}</div>
+                <div className="user">{c.username}</div>
                 <div>{c.text}</div>
               </div>
             ))}

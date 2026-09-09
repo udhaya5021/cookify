@@ -12,6 +12,7 @@ SMTP_HOST = os.getenv("SMTP_HOST", "")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER", "")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+SMTP_FROM = os.getenv("SMTP_FROM", SMTP_USER)
 
 
 def send_email(to: str, subject: str, body: str) -> None:
@@ -22,7 +23,7 @@ def send_email(to: str, subject: str, body: str) -> None:
 
     msg = MIMEText(body)
     msg["Subject"] = subject
-    msg["From"] = SMTP_USER
+    msg["From"] = SMTP_FROM
     msg["To"] = to
 
     with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:

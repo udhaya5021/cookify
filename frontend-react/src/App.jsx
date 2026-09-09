@@ -1,4 +1,4 @@
-import { HashRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -11,7 +11,7 @@ import Chat from "./pages/Chat";
 
 export default function App() {
   return (
-    <HashRouter>
+    <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
@@ -23,6 +23,6 @@ export default function App() {
         <Route path="/profile/:id" element={<Profile />} />
         <Route path="/chat/:userId" element={<Chat />} />
       </Routes>
-    </HashRouter>
+    </BrowserRouter>
   );
 }
