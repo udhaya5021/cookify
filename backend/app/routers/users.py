@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import get_current_user
-from app.models import User, Recipe, Subscription
+from app.models import User, Recipe, Subscription, SavedRecipe
 from app.routers.recipes import _serialize, UPLOAD_DIR, _ALLOWED_MEDIA_EXT
 
 router = APIRouter(prefix="/api/users", tags=["users"])
@@ -18,6 +18,12 @@ def _profile(db: Session, user: User) -> dict:
     recipes = db.query(Recipe).filter(Recipe.creator_id == user.id).all()
     follower_count = db.query(Subscription).filter(Subscription.creator_id == user.id).count()
     following_count = db.query(Subscription).filter(Subscription.subscriber_id == user.id).count()
+
+    # Profile Page wireframe: a second grid, "Saved Recipes", distinct from
+    # what this user has uploaded.
+    saved_ids = [s.recipe_id for s in db.query(SavedRecipe).filter(SavedRecipe.user_id == user.id).all()]
+    saved_recipes = db.query(Recipe).filter(Recipe.id.in_(saved_ids)).all() if saved_ids else []
+
     return {
         "id": user.id,
         "username": user.username,
@@ -29,6 +35,7 @@ def _profile(db: Session, user: User) -> dict:
         "followers": follower_count,
         "following": following_count,
         "uploaded_recipes": [_serialize(r) for r in recipes],
+        "saved_recipes": [_serialize(r) for r in saved_recipes],
     }
 
 

@@ -61,7 +61,10 @@ document.getElementById("login-form").addEventListener("submit", async (e) => {
       window.location.href = "browse.html";
     }
   } catch (err) {
-    alertEl.innerHTML = `<div class="alert error">${err.message}</div>`;
+    // Login Method pseudocode: on a failed password check, ASK "Forgot
+    // Password?" as part of the failure response itself, not just a
+    // static link elsewhere on the page.
+    alertEl.innerHTML = `<div class="alert error">${err.message} — <a href="forgot-password.html">Forgot password?</a></div>`;
   }
 });
 

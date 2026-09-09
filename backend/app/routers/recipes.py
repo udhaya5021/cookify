@@ -41,6 +41,7 @@ def _serialize(r: Recipe) -> dict:
         "dietary_tag": r.dietary_tag,
         "food_type": r.food_type,
         "region": r.region,
+        "created_at": r.created_at.isoformat() if r.created_at else None,
         "view_count": r.view_count,
         "recipe_type": r.recipe_type,  # "veg" | "nonveg"
         "creator_id": r.creator_id,

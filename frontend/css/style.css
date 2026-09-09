@@ -123,6 +123,10 @@ textarea { border-radius: 14px; resize: vertical; }
   gap: 6px;
 }
 .recipe-card.veg { background: #e2f0dc; }
+/* Wireframe callout: "Inverted Yellow Brown Colour Scheme" — Saved Recipes
+   get the brown/cream relationship flipped versus Uploaded Recipes. */
+.recipe-card.saved { background: var(--footer); color: #fff; }
+.recipe-card.saved .meta, .recipe-card.saved .rating { color: #f0e0d0; }
 .recipe-card img.thumb {
   width: 100%; height: 140px; object-fit: cover; border-radius: 10px; margin-bottom: 6px; background: #ddd;
 }

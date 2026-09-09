@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import get_current_user
-from app.models import User, Recipe, Comment, Rating, Subscription, Warning
+from app.models import User, Recipe, Comment, Rating, Subscription, Warning, SavedRecipe
 from app.services.content_filter import validate_comment
 from app.services.email_service import (
     send_new_recipe_notification, send_warning_email,
@@ -104,6 +104,33 @@ def rate_recipe(
         send_new_rating_notification(owner.email, user.username, recipe.title, body.score)
 
     return {"message": "Rating submitted", "average_rating": recipe.average_rating}
+
+
+# ── Saved recipes ────────────────────────────────────────────────────────
+# Profile Page wireframe: "Uploaded Recipes" and "Saved Recipes" as two
+# distinct grids — this is the bookmark feature backing the latter.
+
+@router.post("/recipes/{recipe_id}/save")
+def save_recipe(recipe_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if not db.query(Recipe).get(recipe_id):
+        raise HTTPException(404, "Recipe not found")
+    existing = db.query(SavedRecipe).filter(
+        SavedRecipe.user_id == user.id, SavedRecipe.recipe_id == recipe_id
+    ).first()
+    if existing:
+        return {"message": "Already saved", "saved": True}
+    db.add(SavedRecipe(user_id=user.id, recipe_id=recipe_id))
+    db.commit()
+    return {"message": "Recipe saved", "saved": True}
+
+
+@router.delete("/recipes/{recipe_id}/save")
+def unsave_recipe(recipe_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    db.query(SavedRecipe).filter(
+        SavedRecipe.user_id == user.id, SavedRecipe.recipe_id == recipe_id
+    ).delete()
+    db.commit()
+    return {"message": "Recipe unsaved", "saved": False}
 
 
 # ── Subscriptions ────────────────────────────────────────────────────────

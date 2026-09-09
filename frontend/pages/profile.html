@@ -16,6 +16,7 @@
     <h3>Edit Profile</h3>
     <form id="edit-form">
       <textarea id="bio" rows="2" placeholder="Bio"></textarea>
+      <input type="number" id="age" placeholder="Age" style="max-width:120px;" />
       <input type="file" id="pfp" accept="image/*" style="border-radius:8px; background:transparent; border:1px dashed var(--border);" />
       <button class="btn small" type="submit">Save</button>
     </form>
@@ -23,6 +24,11 @@
 
   <h2 style="margin:20px 0 10px;">Uploaded Recipes</h2>
   <div id="recipes" class="recipe-grid"></div>
+
+  <!-- Wireframe callout: "Inverted Yellow Brown Colour Scheme" distinguishes
+       Saved Recipes from Uploaded Recipes — swapped card/badge tones below. -->
+  <h2 style="margin:20px 0 10px;">Saved Recipes</h2>
+  <div id="saved-recipes" class="recipe-grid"></div>
 </div>
 
 <div id="footer"></div>
@@ -48,7 +54,7 @@ async function init() {
         : `<div style="width:80px; height:80px; border-radius:50%; background:#eee;"></div>`}
       <div>
         <h1>${p.username}</h1>
-        <div class="meta">${p.first_name || ""} ${p.last_name || ""}</div>
+        <div class="meta">${p.first_name || ""} ${p.last_name || ""}${p.age ? ' · Age ' + p.age : ''}</div>
         <div class="meta">${p.followers} followers · ${p.following} following</div>
       </div>
     </div>
@@ -66,9 +72,20 @@ async function init() {
       </div>`).join("")
     : `<div class="empty-state">No recipes uploaded yet.</div>`;
 
+  const savedEl = document.getElementById("saved-recipes");
+  savedEl.innerHTML = p.saved_recipes.length
+    ? p.saved_recipes.map(r => `
+      <div class="recipe-card saved">
+        <div class="title">${r.title}</div>
+        <div class="rating">${r.rating_count} ratings | Avg ${r.average_rating}</div>
+        <a class="btn small secondary" href="recipe.html?id=${r.id}">Open recipe</a>
+      </div>`).join("")
+    : `<div class="empty-state">No saved recipes yet.</div>`;
+
   if (parseInt(profileId, 10) === getMyUserId()) {
     document.getElementById("edit-panel").style.display = "block";
     document.getElementById("bio").value = p.bio || "";
+    document.getElementById("age").value = p.age || "";
   }
 }
 
@@ -77,6 +94,7 @@ document.getElementById("edit-form").addEventListener("submit", async (e) => {
   requireAuth();
   const form = new FormData();
   form.append("bio", document.getElementById("bio").value);
+  form.append("age", document.getElementById("age").value || "");
   const pfp = document.getElementById("pfp").files[0];
   if (pfp) form.append("profile_picture", pfp);
   try {

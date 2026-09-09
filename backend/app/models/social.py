@@ -52,6 +52,17 @@ class ChatMessage(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class SavedRecipe(Base):
+    """Profile Page wireframe shows both "Uploaded Recipes" and "Saved
+    Recipes" as two distinct grids — this backs the latter (bookmarking)."""
+    __tablename__ = "saved_recipes"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    recipe_id = Column(Integer, ForeignKey("recipes.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class Warning(Base):
     """Audit trail for the ban system — 3 warnings triggers a ban (test case 11)."""
     __tablename__ = "warnings"

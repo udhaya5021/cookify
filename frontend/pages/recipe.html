@@ -42,6 +42,7 @@ async function loadRecipe() {
     <h1>${r.title}</h1>
     <div class="meta">
       By <a href="profile.html?id=${r.creator_id}">${r.creator_username}</a>
+      · ${r.created_at ? new Date(r.created_at).toLocaleDateString() : ''}
       · ${r.view_count} views · ${r.rating_count} ratings | Avg ${r.average_rating}
       ${r.food_type ? ' · ' + r.food_type : ''}${r.region ? ' · ' + r.region : ''}
     </div>
@@ -55,10 +56,22 @@ async function loadRecipe() {
     <div class="steps">${r.steps}</div>
     <div style="display:flex; gap:10px; margin-top:16px;">
       <button class="btn secondary small" id="subscribe-btn">Subscribe to ${r.creator_username}</button>
+      <button class="btn secondary small" id="save-btn">Save Recipe</button>
       <button class="btn secondary small" id="share-btn">Share Recipe</button>
       ${r.creator_id === getMyUserId() ? `<a class="btn secondary small" href="upload.html?id=${r.id}">Edit recipe</a>` : ""}
     </div>
   `;
+
+  document.getElementById("save-btn").addEventListener("click", async () => {
+    requireAuth();
+    const btn = document.getElementById("save-btn");
+    try {
+      const res = await api(`/api/recipes/${recipeId}/save`, { method: "POST", auth: true });
+      btn.textContent = "Saved ✓";
+    } catch (err) {
+      alert(err.message);
+    }
+  });
 
   document.getElementById("share-btn").addEventListener("click", async () => {
     // Structure/Dataflow diagrams: Display Recipe -> Share Recipe. Copies a
