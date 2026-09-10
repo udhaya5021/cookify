@@ -3,7 +3,7 @@
 from typing import Optional
 
 from fastapi import Depends, Header, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 
 from app.database import get_db
 from app.models import User
@@ -18,7 +18,11 @@ def get_current_user(
     user_id = decode_access_token(authorization.removeprefix("Bearer "))
     if user_id is None:
         raise HTTPException(401, "Invalid or expired token")
-    user = db.query(User).get(user_id)
+    # This dependency runs on every authenticated request across the whole
+    # app; profile_picture_data can be a multi-MB blob that almost none of
+    # those requests actually need, so it's deferred here rather than in
+    # each individual endpoint.
+    user = db.query(User).options(defer(User.profile_picture_data)).get(user_id)
     if not user:
         raise HTTPException(401, "User not found")
     if user.is_banned:
@@ -37,7 +41,11 @@ def get_current_user_optional(
     user_id = decode_access_token(authorization.removeprefix("Bearer "))
     if user_id is None:
         return None
-    user = db.query(User).get(user_id)
+    # This dependency runs on every authenticated request across the whole
+    # app; profile_picture_data can be a multi-MB blob that almost none of
+    # those requests actually need, so it's deferred here rather than in
+    # each individual endpoint.
+    user = db.query(User).options(defer(User.profile_picture_data)).get(user_id)
     if not user or user.is_banned:
         return None
     return user

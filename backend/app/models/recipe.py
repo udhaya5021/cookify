@@ -8,7 +8,7 @@ so this is real, queryable polymorphism, not just decorative subclassing.
 from datetime import datetime
 
 from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, LargeBinary, String, Text
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import defer, relationship
 
 from app.database import Base
 
@@ -141,7 +141,11 @@ class Recipe(Base):
     ) -> list["Recipe"]:
         """Recipe Search Method pseudocode: query, then apply filters and
         preferences, then order the matches."""
-        query = db.query(cls)
+        # media_data can be tens of MB (video) — a list/search response only
+        # ever needs media_url, so loading the actual bytes for every matching
+        # row here would mean transferring the full blob of every result out
+        # of Postgres just to build a title-and-thumbnail-URL list.
+        query = db.query(cls).options(defer(cls.media_data))
         if q:
             query = query.filter(cls.title.ilike(f"%{q}%"))
         if ingredient:

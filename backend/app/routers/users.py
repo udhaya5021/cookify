@@ -5,7 +5,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 
 from app.database import get_db
 from app.deps import get_current_user, get_current_user_optional
@@ -18,7 +18,12 @@ router = APIRouter(prefix="/api/users", tags=["users"])
 
 
 def _profile(db: Session, user: User, viewer: Optional[User] = None) -> dict:
-    recipes = db.query(Recipe).filter(Recipe.creator_id == user.id).all()
+    # media_data is deferred in both queries below — _serialize() only reads
+    # media_url/media_content_type, and a profile with several video uploads
+    # would otherwise pull every one of those blobs just to list titles.
+    recipes = (
+        db.query(Recipe).options(defer(Recipe.media_data)).filter(Recipe.creator_id == user.id).all()
+    )
     follower_count = db.query(Subscription).filter(Subscription.creator_id == user.id).count()
     following_count = db.query(Subscription).filter(Subscription.subscriber_id == user.id).count()
 
@@ -27,7 +32,11 @@ def _profile(db: Session, user: User, viewer: Optional[User] = None) -> dict:
     saved_ids = [
         s.recipe_id for s in db.query(SavedRecipe).filter(SavedRecipe.user_id == user.id).all()
     ]
-    saved_recipes = db.query(Recipe).filter(Recipe.id.in_(saved_ids)).all() if saved_ids else []
+    saved_recipes = (
+        db.query(Recipe).options(defer(Recipe.media_data)).filter(Recipe.id.in_(saved_ids)).all()
+        if saved_ids
+        else []
+    )
 
     is_subscribed = bool(
         viewer
@@ -64,7 +73,7 @@ def _summaries(db: Session, ids: list[int]) -> list[dict]:
             "last_name": u.last_name,
             "profile_picture_url": u.profile_picture_url,
         }
-        for u in db.query(User).filter(User.id.in_(ids)).all()
+        for u in db.query(User).options(defer(User.profile_picture_data)).filter(User.id.in_(ids)).all()
     ]
 
 
@@ -89,7 +98,7 @@ def get_profile(
     db: Session = Depends(get_db),
     viewer: Optional[User] = Depends(get_current_user_optional),
 ):
-    user = db.query(User).get(user_id)
+    user = db.query(User).options(defer(User.profile_picture_data)).get(user_id)
     if not user:
         raise HTTPException(404, "User not found")
     return _profile(db, user, viewer)

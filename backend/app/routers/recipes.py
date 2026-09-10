@@ -4,7 +4,7 @@ Recipe Upload Method and Recipe Search Method pseudocode."""
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 
 from app.database import get_db
 from app.deps import get_current_user, get_current_user_optional
@@ -196,7 +196,10 @@ def get_recipe(
     db: Session = Depends(get_db),
     viewer: Optional[User] = Depends(get_current_user_optional),
 ):
-    recipe = db.query(Recipe).get(recipe_id)
+    # _serialize() only ever reads media_url/media_content_type, never the
+    # actual bytes — deferring media_data avoids pulling a (potentially
+    # tens-of-MB video) blob out of Postgres just to show a detail page.
+    recipe = db.query(Recipe).options(defer(Recipe.media_data)).get(recipe_id)
     if not recipe:
         raise HTTPException(404, "Recipe not found")
     is_saved = bool(
@@ -243,7 +246,7 @@ async def edit_recipe(
     """Structure Diagram: Display Recipe -> Edit recipe. Same reused form as
     upload (per the wireframe's "Recipe Upload / Edit" page label), gated to
     the recipe's own creator."""
-    recipe = db.query(Recipe).get(recipe_id)
+    recipe = db.query(Recipe).options(defer(Recipe.media_data)).get(recipe_id)
     if not recipe:
         raise HTTPException(404, "Recipe not found")
     if recipe.creator_id != user.id:
@@ -286,7 +289,7 @@ async def edit_recipe(
         # SQLAlchemy can't refresh against the new discriminator — drop it and
         # re-read so it comes back as the right class.
         db.expunge(recipe)
-        recipe = db.query(Recipe).get(recipe_id)
+        recipe = db.query(Recipe).options(defer(Recipe.media_data)).get(recipe_id)
     else:
         db.refresh(recipe)
     return {"message": "Recipe updated successfully", "recipe": _serialize(recipe)}
@@ -298,7 +301,7 @@ def delete_recipe(
 ):
     """Structure Diagram: Display Recipe -> Edit recipe covers editing; this
     is its natural counterpart, gated the same way — creator only."""
-    recipe = db.query(Recipe).get(recipe_id)
+    recipe = db.query(Recipe).options(defer(Recipe.media_data)).get(recipe_id)
     if not recipe:
         raise HTTPException(404, "Recipe not found")
     if recipe.creator_id != user.id:
