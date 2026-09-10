@@ -31,7 +31,12 @@ class User(Base):
     # Authy, 1Password...), which is a genuinely separate factor rather than
     # one that shares a channel with password reset.
     two_fa_enabled = Column(Boolean, default=True)
-    two_fa_method = Column(String, default="email")  # "email" | "totp"
+    # Authenticator app is the default second factor: it doesn't share a
+    # channel with password reset the way an emailed code does. Enrolment
+    # happens during signup (see auth.signup), and login falls back to an
+    # emailed code only while an account hasn't finished enrolling — without
+    # that fallback, abandoning the QR step would lock the account out.
+    two_fa_method = Column(String, default="totp")  # "totp" | "email"
     # Set when TOTP setup begins, but only trusted once the user proves they
     # can generate a code from it — see totp_confirmed.
     totp_secret = Column(String, default="")

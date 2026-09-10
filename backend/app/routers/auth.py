@@ -53,8 +53,24 @@ def signup(body: SignupRequest, db: Session = Depends(get_db)):
     except ValueError as err:
         raise HTTPException(400, str(err))
 
+    # Issue the authenticator secret straight away so the signup page can show
+    # the QR as its second step. It isn't trusted until the user submits a
+    # working code (POST /api/users/me/2fa/totp/confirm) — until then login
+    # falls back to an emailed code so an abandoned enrolment can't lock the
+    # account out.
+    secret = totp_service.new_secret()
+    user.totp_secret = secret
+    user.totp_confirmed = False
+    db.commit()
+
+    uri = totp_service.provisioning_uri(secret, user.username)
     token = create_access_token(user.id)
-    return {"message": "Account created successfully", "access_token": token, "user_id": user.id}
+    return {
+        "message": "Account created successfully",
+        "access_token": token,
+        "user_id": user.id,
+        "totp": {"secret": secret, "otpauth_uri": uri, "qr_svg": totp_service.qr_svg(uri)},
+    }
 
 
 @router.post("/login")

@@ -10,6 +10,8 @@ export default function Signup() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [alert, setAlertMsg] = useState("");
+  const [enrol, setEnrol] = useState(null);   // { secret, qr_svg } after signup
+  const [code, setCode] = useState("");
   const navigate = useNavigate();
 
   async function submit(e) {
@@ -25,6 +27,18 @@ export default function Signup() {
         body: { username, email, phone_number: phone, password },
       });
       setToken(res.access_token);
+      if (res.totp) { setEnrol(res.totp); return; }   // enrol before continuing
+      navigate("/browse");
+    } catch (err) {
+      setAlertMsg(err.message);
+    }
+  }
+
+  async function confirmEnrol(e) {
+    e.preventDefault();
+    setAlertMsg("");
+    try {
+      await api("/api/users/me/2fa/totp/confirm", { method: "POST", auth: true, body: { code } });
       navigate("/browse");
     } catch (err) {
       setAlertMsg(err.message);
@@ -34,8 +48,30 @@ export default function Signup() {
   return (
     <Layout>
       <div className="form-card">
-        <h1>Sign Up</h1>
+        <h1>{enrol ? "Set up your authenticator" : "Sign Up"}</h1>
         {alert && <div className="alert error">{alert}</div>}
+        {enrol ? (
+          <>
+            <p className="meta" style={{ marginBottom: 12 }}>
+              Scan this with Google Authenticator, Authy, or 1Password. You'll use
+              it to sign in from now on.
+            </p>
+            <div className="totp-qr" dangerouslySetInnerHTML={{ __html: enrol.qr_svg }} />
+            <p className="meta">Can't scan? Enter this key manually:</p>
+            <code className="totp-secret">{enrol.secret}</code>
+            <form onSubmit={confirmEnrol} style={{ marginTop: 14 }}>
+              <input type="text" inputMode="numeric" autoComplete="one-time-code"
+                placeholder="6-digit code from the app" required
+                value={code} onChange={(e) => setCode(e.target.value)} />
+              <button className="btn" type="submit" style={{ width: "100%" }}>Finish setup</button>
+            </form>
+            <p className="form-note">
+              <a href="#" onClick={(e) => { e.preventDefault(); navigate("/browse"); }}>
+                Skip for now — we'll email codes instead
+              </a>
+            </p>
+          </>
+        ) : (
         <form onSubmit={submit}>
           <input type="text" placeholder="Username" required value={username} onChange={(e) => setUsername(e.target.value)} />
           <input type="email" placeholder="Email" required value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -44,6 +80,7 @@ export default function Signup() {
           <input type="password" placeholder="Confirm Password" required value={confirm} onChange={(e) => setConfirm(e.target.value)} />
           <button className="btn" type="submit" style={{ width: "100%" }}>Confirm Sign Up</button>
         </form>
+        )}
         <p className="form-note">Already have an account? <Link to="/login">Login</Link></p>
       </div>
     </Layout>
