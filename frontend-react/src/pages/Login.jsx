@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, Navigate } from "react-router-dom";
 import Layout from "../components/Layout";
-import { api, setToken, setDeviceToken, getDeviceToken } from "../api";
+import { api, setToken, setDeviceToken, getDeviceToken, getToken } from "../api";
 
 export default function Login() {
   const [identifier, setIdentifier] = useState("");
@@ -71,6 +71,10 @@ export default function Login() {
     }
   }
 
+  // Already signed in — an in-progress enrolment/OTP step still has to
+  // finish (it's how you get a full session), everything else bounces to Browse.
+  if (getToken() && !enrol && !pendingEmail) return <Navigate to="/browse" replace />;
+
   return (
     <Layout>
       <div className="form-card">
@@ -78,7 +82,7 @@ export default function Login() {
         {alert && <div className="alert error">{alert}</div>}
 
         {enrol ? (
-          <>
+          <div className="totp-box">
             <p className="meta" style={{ marginBottom: 12 }}>
               Your account still needs an authenticator app. Scan this, then enter
               the code it shows.
@@ -86,13 +90,13 @@ export default function Login() {
             <div className="totp-qr" dangerouslySetInnerHTML={{ __html: enrol.qr_svg }} />
             <p className="meta">Can't scan? Enter this key manually:</p>
             <code className="totp-secret">{enrol.secret}</code>
-            <form onSubmit={confirmEnrol} style={{ marginTop: 14 }}>
+            <form onSubmit={confirmEnrol}>
               <input type="text" inputMode="numeric" autoComplete="one-time-code"
                 placeholder="6-digit code from the app" required
                 value={enrolCode} onChange={(e) => setEnrolCode(e.target.value)} />
               <button className="btn" type="submit" style={{ width: "100%" }}>Finish setup</button>
             </form>
-          </>
+          </div>
         ) : !pendingEmail ? (
           <form onSubmit={submitLogin}>
             <input type="text" placeholder="Username / Email / Phone Number" required
@@ -107,13 +111,15 @@ export default function Login() {
             <button className="btn" type="submit" style={{ width: "100%" }}>Confirm Login</button>
           </form>
         ) : (
-          <form onSubmit={submitOtp}>
-            <p style={{ marginBottom: 12, fontSize: 14 }}>
-"Open your authenticator app and enter the current 6-digit code."
+          <div className="totp-box">
+            <p className="meta" style={{ marginBottom: 12 }}>
+              Open your authenticator app and enter the current 6-digit code.
             </p>
-            <input type="text" inputMode="numeric" autoComplete="one-time-code" placeholder="2FA OTP" required value={otp} onChange={(e) => setOtp(e.target.value)} />
-            <button className="btn" type="submit" style={{ width: "100%" }}>Verify Code</button>
-          </form>
+            <form onSubmit={submitOtp}>
+              <input type="text" inputMode="numeric" autoComplete="one-time-code" placeholder="6-digit code" required value={otp} onChange={(e) => setOtp(e.target.value)} />
+              <button className="btn" type="submit" style={{ width: "100%" }}>Verify Code</button>
+            </form>
+          </div>
         )}
 
         <p className="form-note"><Link to="/forgot-password">Forgot password?</Link></p>

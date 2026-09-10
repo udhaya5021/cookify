@@ -5,7 +5,7 @@ Uses SQLAlchemy single-table inheritance (a `recipe_type` discriminator column)
 so this is real, queryable polymorphism, not just decorative subclassing.
 """
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Text, LargeBinary
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -24,7 +24,9 @@ class Recipe(Base):
     ingredients = Column(Text, nullable=False)       # comma-separated or freeform
     utensils = Column(Text, default="")               # required equipment — searchable
     steps = Column(Text, nullable=False)
-    media_url = Column(String, default="")            # photo/video attachment
+    media_url = Column(String, default="")            # photo/video attachment (points at GET /api/recipes/{id}/media)
+    media_data = Column(LargeBinary, nullable=True)    # the actual bytes — stored in Postgres, not local disk
+    media_content_type = Column(String, default="")
 
     cost = Column(Float, default=0.0)                 # budget filter
     cooking_time_minutes = Column(Integer, default=0) # prep/cook time filter
@@ -81,9 +83,13 @@ class Recipe(Base):
             return False
         if dietary_tag and self.dietary_tag != dietary_tag:
             return False
-        if food_type and self.food_type.lower() != food_type.lower():
+        # Substring, not exact match — consistent with how ingredient/utensil
+        # search behaves. Exact match meant typing "dess" instead of the full
+        # "dessert", or "south" instead of "south indian", returned nothing
+        # even though a matching recipe existed.
+        if food_type and food_type.lower() not in (self.food_type or "").lower():
             return False
-        if region and self.region.lower() != region.lower():
+        if region and region.lower() not in (self.region or "").lower():
             return False
         return True
 
@@ -102,6 +108,7 @@ class Recipe(Base):
         max_cost=None, max_time=None, max_calories=None,
         min_speed=None, min_difficulty=None, min_rating=None,
         dietary_tag="", food_type="", region="", sort="popularity",
+        subscribed_creator_ids=None,
     ) -> list["Recipe"]:
         """Recipe Search Method pseudocode: query, then apply filters and
         preferences, then order the matches."""
@@ -114,6 +121,11 @@ class Recipe(Base):
             query = query.filter(cls.utensils.ilike(f"%{utensil}%"))
         if veg_only:
             query = query.filter(cls.recipe_type == "veg")
+        # Test case 13: "the subscriber account is recommended more of
+        # their posts" — a "Following" filter surfacing only recipes from
+        # creators this viewer subscribes to.
+        if subscribed_creator_ids is not None:
+            query = query.filter(cls.creator_id.in_(subscribed_creator_ids))
 
         # Polymorphic pass — each instance applies its own matches_filters().
         matches = [

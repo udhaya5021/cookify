@@ -50,6 +50,10 @@ class ChatMessage(Base):
     recipient_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     text = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    # Flips to True once the recipient opens the conversation — backs the
+    # unread badge/highlight so "you got a message" is visible without
+    # emailing on every single message in a live back-and-forth.
+    is_read = Column(Boolean, default=False)
 
 
 class SavedRecipe(Base):

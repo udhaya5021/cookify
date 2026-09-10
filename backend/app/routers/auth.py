@@ -1,5 +1,8 @@
 """Signup / login / 2FA / forgot-password — matches the assignment's
 Sign Up Method and Login Method pseudocode almost line for line."""
+import os
+import secrets
+from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -12,6 +15,10 @@ from app.services.security import (
     create_access_token, generate_device_token,
 )
 from app.services import totp_service
+from app.services.email_service import send_password_reset_email
+
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+_RESET_TOKEN_TTL = timedelta(minutes=30)
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -81,21 +88,18 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
         if known:
             return {"message": "Login Success", "access_token": create_access_token(user.id)}
 
-    if not user.two_fa_enabled:
-        return {"message": "Login Success", "access_token": create_access_token(user.id)}
-
-    # Authenticator app: the code already exists on the user's device, so
-    # there's nothing to generate or send here.
+    # One path only: every account authenticates with an authenticator app.
+    # The code already exists on the user's device, so there is nothing to
+    # generate or send here.
     if user.totp_confirmed:
         return {
             "message": "Enter the code from your authenticator app",
             "requires_otp": True, "method": "totp", "email": user.email,
         }
 
-    # 2FA is on but the app was never enrolled — most likely signup was
-    # abandoned at the QR step. Re-issue the secret and finish enrolment now
-    # rather than refusing the login, which would strand the account with no
-    # way back in now that emailed codes are gone.
+    # No app enrolled yet — most likely signup was abandoned at the QR step.
+    # Re-issue the secret and finish enrolment now rather than refusing the
+    # login, which would strand the account with no way back in.
     #
     # The session token below is handed out before a second factor exists.
     # That is the honest position: this account currently has one factor, the
@@ -139,16 +143,43 @@ def verify_otp(body: VerifyOtpRequest, db: Session = Depends(get_db)):
 
 class ForgotPasswordRequest(BaseModel):
     identifier: str  # username, email, or phone number — matches the Login page's wireframe field
-    new_password: str
 
 
 @router.post("/forgot-password")
 def forgot_password(body: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """Login Method pseudocode: "SEND password reset mail to registered Email
+    ID ... DISPLAY Reset Email Sent" — a link with a single-use, time-limited
+    token, not a same-request password change. Anything else would let
+    whoever merely knows a username take over the account outright."""
     user = User.find_by_identifier(db, body.identifier)
     if not user:
         raise HTTPException(404, "Error: User not found")
+
+    token = secrets.token_urlsafe(32)
+    user.reset_token = token
+    user.reset_token_expires = datetime.utcnow() + _RESET_TOKEN_TTL
+    db.commit()
+
+    reset_link = f"{FRONTEND_URL}/reset-password?token={token}"
+    send_password_reset_email(user.email, reset_link)
+    return {"message": "Reset Email Sent"}
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+@router.post("/reset-password")
+def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.reset_token == body.token).first() if body.token else None
+    if not user or not user.reset_token_expires or user.reset_token_expires < datetime.utcnow():
+        raise HTTPException(400, "This reset link is invalid or has expired — request a new one")
     if not is_password_valid(body.new_password):
         raise HTTPException(400, "Password must be at least 9 characters, no spaces or restricted symbols")
+
     user.password_hash = hash_password(body.new_password)
+    user.reset_token = ""
+    user.reset_token_expires = None
     db.commit()
     return {"message": "Password reset successfully"}

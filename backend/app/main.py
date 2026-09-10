@@ -32,12 +32,10 @@ app.include_router(social.router)
 app.include_router(chat.router)
 app.include_router(users.router)
 
-# Absolute path, derived from this file's own location — not a relative
-# "app/static" string, which broke depending on the process's working
-# directory (it worked when launched from backend/, failed otherwise).
-_STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
-os.makedirs(os.path.join(_STATIC_DIR, "uploads"), exist_ok=True)
-app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
+# No /static/uploads mount: recipe photos and avatars are served from
+# Postgres blob columns via /api/recipes/{id}/media and /api/users/{id}/avatar
+# (see app/services/media.py) rather than local disk, so they survive
+# redeploys and work identically across any number of backend instances.
 
 
 @app.on_event("startup")
@@ -63,7 +61,11 @@ def health():
 # it never shadows the /api/* routes above.
 _FRONTEND_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend-react", "dist"))
 
-if os.path.isdir(_FRONTEND_DIR):
+# Only serve the production-built frontend from the backend when explicitly
+# requested. During development we want the Vite dev server (with HMR)
+# to serve the app and proxy API calls to this backend; serving the static
+# `dist/` here can result in stale content showing up on http://localhost:8000.
+if os.getenv("SERVE_FRONTEND", "") == "1" and os.path.isdir(_FRONTEND_DIR):
     app.mount("/assets", StaticFiles(directory=os.path.join(_FRONTEND_DIR, "assets")), name="frontend-assets")
 
     _INDEX_HTML = os.path.join(_FRONTEND_DIR, "index.html")

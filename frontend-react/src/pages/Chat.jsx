@@ -1,9 +1,13 @@
 import { useState, useEffect, useRef } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, Navigate } from "react-router-dom";
 import Layout from "../components/Layout";
-import { api, getMyUserId } from "../api";
+import { api, API_BASE, getMyUserId, getToken } from "../api";
 
 const TYPING_PING_INTERVAL = 2000; // ping at most this often while composing
+
+function formatTime(iso) {
+  return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
 
 export default function Chat() {
   const { userId } = useParams();
@@ -12,12 +16,18 @@ export default function Chat() {
   const [partner, setPartner] = useState(null);
   const [partnerTyping, setPartnerTyping] = useState(false);
   const lastPingRef = useRef(0);
+  const threadEndRef = useRef(null);
   const myId = getMyUserId();
 
   async function loadMessages() {
-    const data = await api(`/api/chat/with/${userId}`, { auth: true });
-    setMessages(data.messages);
-    setPartnerTyping(data.partner_typing);
+    try {
+      const data = await api(`/api/chat/with/${userId}`, { auth: true });
+      setMessages(data.messages);
+      setPartnerTyping(data.partner_typing);
+    } catch {
+      // Logged-out visits are redirected below; a transient network hiccup
+      // during polling shouldn't crash the page either way.
+    }
   }
 
   function handleTyping(value) {
@@ -34,11 +44,19 @@ export default function Chat() {
   }
 
   useEffect(() => {
+    // Same reuse issue as Profile: navigating from /chat/1 to /chat/2 doesn't
+    // remount this component, so a half-typed draft would otherwise carry
+    // over and could get sent to the wrong recipient.
+    setText("");
     api(`/api/users/${userId}`).then(setPartner).catch(() => setPartner(null));
     loadMessages();
     const interval = setInterval(loadMessages, 4000); // simple polling — see backend chat.py for the tradeoff note
     return () => clearInterval(interval);
   }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    threadEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages, partnerTyping]);
 
   async function send(e) {
     e.preventDefault();
@@ -47,23 +65,38 @@ export default function Chat() {
     loadMessages();
   }
 
+  if (!getToken()) return <Navigate to="/login" replace />;
+
   return (
     <Layout>
       <div className="container">
-        <div className="recipe-detail">
-          <h1>{partner ? partner.username : "Chat"}</h1>
-          <p className="meta" style={{ marginBottom: 14 }}>
-            <Link to="/messages">← All messages</Link>
-            {partner && <> · <Link to={`/profile/${userId}`}>View profile</Link></>}
-          </p>
-          <div style={{ maxHeight: 400, overflowY: "auto", marginBottom: 16 }}>
+        <p className="meta" style={{ margin: "20px 0 12px" }}>
+          <Link to="/messages">← All messages</Link>
+        </p>
+
+        <div className="chat-card">
+          <div className="chat-header">
+            {partner?.profile_picture_url
+              ? <img className="chat-header-avatar" src={`${API_BASE}${partner.profile_picture_url}`} alt="" />
+              : <div className="chat-header-avatar chat-header-avatar-empty">{(partner?.username || "?").charAt(0).toUpperCase()}</div>}
+            <div className="chat-header-info">
+              <div className="chat-header-name">{partner ? partner.username : "Chat"}</div>
+              {partner && (
+                <div className="chat-header-links"><Link to={`/profile/${userId}`}>View profile</Link></div>
+              )}
+            </div>
+          </div>
+
+          <div className="chat-thread">
+            {messages.length === 0 && !partnerTyping && (
+              <div className="chat-empty">No messages yet — say hello 👋</div>
+            )}
             {messages.map((m) => (
-              <div key={m.id} style={{ textAlign: m.sender_id === myId ? "right" : "left", margin: "6px 0" }}>
-                <span style={{
-                  background: m.sender_id === myId ? "var(--accent)" : "#eee",
-                  color: m.sender_id === myId ? "#fff" : "#000",
-                  padding: "8px 14px", borderRadius: 14, display: "inline-block",
-                }}>{m.text}</span>
+              <div key={m.id} className={`chat-row ${m.sender_id === myId ? "mine" : "theirs"}`}>
+                <div className="chat-bubble">
+                  {m.text}
+                  <span className="chat-time">{formatTime(m.created_at)}</span>
+                </div>
               </div>
             ))}
 
@@ -75,9 +108,11 @@ export default function Chat() {
                 <span className="meta">{partner?.username || "They"} is typing…</span>
               </div>
             )}
+            <div ref={threadEndRef} />
           </div>
-          <form onSubmit={send} style={{ display: "flex", gap: 10 }}>
-            <input type="text" placeholder="Type a message..." style={{ margin: 0 }} required
+
+          <form className="chat-composer" onSubmit={send}>
+            <input type="text" placeholder="Type a message..." required
               value={text} onChange={(e) => handleTyping(e.target.value)} />
             <button className="btn small" type="submit">Send</button>
           </form>

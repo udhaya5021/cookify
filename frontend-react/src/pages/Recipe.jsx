@@ -1,21 +1,30 @@
 import { useState, useEffect, useRef } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
 import PageLoading from "../components/PageLoading";
+import ShareModal from "../components/ShareModal";
+import { useConfirm } from "../hooks/useConfirm";
+import { useToast } from "../hooks/useToast";
 import { api, API_BASE, requireAuthOrAlert, getMyUserId } from "../authGuard";
 
 export default function Recipe() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [recipe, setRecipe] = useState(null);
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState("");
   const [commentAlert, setCommentAlert] = useState(null);
   const [ratingMsg, setRatingMsg] = useState(null);
-  const [saveLabel, setSaveLabel] = useState("Save Recipe");
+  const [shareOpen, setShareOpen] = useState(false);
   const starsRef = useRef(null);
+  const [confirmModal, confirm] = useConfirm();
+  const [toast, showToast] = useToast();
 
   async function loadRecipe() {
-    const r = await api(`/api/recipes/${id}`);
+    // auth:true is safe even when logged out — api() only attaches the
+    // header if a token actually exists — and it's required here so the
+    // backend knows *who's* viewing, to report this viewer's is_saved state.
+    const r = await api(`/api/recipes/${id}`, { auth: true });
     setRecipe(r);
   }
   async function loadComments() {
@@ -25,33 +34,26 @@ export default function Recipe() {
 
   useEffect(() => { loadRecipe(); loadComments(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function handleSave() {
+  async function handleToggleSave() {
     if (!requireAuthOrAlert()) return;
+    const wasSaved = recipe.is_saved;
     try {
-      await api(`/api/recipes/${id}/save`, { method: "POST", auth: true });
-      setSaveLabel("Saved ✓");
+      await api(`/api/recipes/${id}/save`, { method: wasSaved ? "DELETE" : "POST", auth: true });
+      setRecipe((prev) => ({ ...prev, is_saved: !wasSaved }));
     } catch (err) {
-      alert(err.message);
+      showToast(err.message, "error");
     }
   }
 
-  async function handleShare() {
-    const url = window.location.href;
-    try {
-      await navigator.clipboard.writeText(url);
-      alert("Link copied to clipboard:\n" + url);
-    } catch {
-      prompt("Copy this link to share:", url);
-    }
-  }
-
-  async function handleSubscribe() {
+  async function handleToggleSubscribe() {
     if (!requireAuthOrAlert()) return;
+    const wasSubscribed = recipe.is_subscribed_to_creator;
     try {
-      const res = await api(`/api/users/${recipe.creator_id}/subscribe`, { method: "POST", auth: true });
-      alert(res.message);
+      const res = await api(`/api/users/${recipe.creator_id}/subscribe`, { method: wasSubscribed ? "DELETE" : "POST", auth: true });
+      showToast(res.message, "success");
+      setRecipe((prev) => ({ ...prev, is_subscribed_to_creator: !wasSubscribed }));
     } catch (err) {
-      alert(err.message);
+      showToast(err.message, "error");
     }
   }
 
@@ -66,6 +68,17 @@ export default function Recipe() {
       loadRecipe();
     } catch (err) {
       setRatingMsg({ type: "error", text: err.message });
+    }
+  }
+
+  async function handleDelete() {
+    const ok = await confirm(`Delete "${recipe.title}"? This can't be undone.`, { danger: true });
+    if (!ok) return;
+    try {
+      await api(`/api/recipes/${id}`, { method: "DELETE", auth: true });
+      navigate(`/profile/${recipe.creator_id}`);
+    } catch (err) {
+      showToast(err.message, "error");
     }
   }
 
@@ -91,12 +104,26 @@ export default function Recipe() {
       <div className="container">
         <div className="recipe-detail">
           <span className={`badge ${recipe.recipe_type === "veg" ? "veg" : "nonveg"}`}>{recipe.dietary_tag.replace("_", " ")}</span>
-          <h1>{recipe.title}</h1>
-          <div className="meta">
-            By <Link to={`/profile/${recipe.creator_id}`}>{recipe.creator_username}</Link>
-            {" · "}{recipe.created_at ? new Date(recipe.created_at).toLocaleDateString() : ""}
-            {" · "}{recipe.view_count} views · {recipe.rating_count} ratings | Avg {recipe.average_rating}
-            {recipe.food_type ? " · " + recipe.food_type : ""}{recipe.region ? " · " + recipe.region : ""}
+          <div className="recipe-header">
+            <div style={{ flex: 1 }}>
+              <h1>{recipe.title}</h1>
+              <div className="meta-row">
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  {recipe.creator_profile_picture_url
+                    ? <img className="inline-avatar" src={recipe.creator_profile_picture_url.startsWith("http") ? recipe.creator_profile_picture_url : `${API_BASE}${recipe.creator_profile_picture_url}`} alt="" />
+                    : <div className="inline-avatar" style={{ background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700 }}>{(recipe.creator_username||"?").charAt(0).toUpperCase()}</div>}
+                  <div>
+                    <div>By <Link to={`/profile/${recipe.creator_id}`}>{recipe.creator_username}</Link></div>
+                    {recipe.creator_bio && <div className="author-bio" style={{ marginTop: 4 }}>{recipe.creator_bio}</div>}
+                  </div>
+                </div>
+                <div style={{ marginLeft: 8 }}>
+                  {recipe.created_at ? new Date(recipe.created_at).toLocaleDateString() : ""}
+                  {" · "}{recipe.view_count} views · {recipe.rating_count} ratings | Avg {recipe.average_rating}
+                  {recipe.food_type ? " · " + recipe.food_type : ""}{recipe.region ? " · " + recipe.region : ""}
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Wireframe: media on the left, steps on the right — also keeps the
@@ -105,7 +132,7 @@ export default function Recipe() {
           <div className="recipe-layout">
             <div className="recipe-aside">
               {recipe.media_url
-                ? <img className="thumb" style={{ height: 240 }} src={`${API_BASE}${recipe.media_url}`} alt="" />
+                ? <img className="thumb" style={{ height: 240 }} src={recipe.media_url.startsWith("http") ? recipe.media_url : `${API_BASE}${recipe.media_url}`} alt="" />
                 : <div className="thumb thumb-placeholder" style={{ height: 240, borderRadius: 12 }}>{recipe.title.charAt(0).toUpperCase()}</div>}
 
               <dl className="recipe-facts">
@@ -129,10 +156,15 @@ export default function Recipe() {
           </div>
 
           <div className="recipe-actions">
-            {!isOwner && <button className="btn secondary small" onClick={handleSubscribe}>Subscribe to {recipe.creator_username}</button>}
-            <button className="btn secondary small" onClick={handleSave}>{saveLabel}</button>
-            <button className="btn secondary small" onClick={handleShare}>Share Recipe</button>
+            {!isOwner && (
+              <button className="btn secondary small" onClick={handleToggleSubscribe}>
+                {recipe.is_subscribed_to_creator ? `Subscribed ✓ ${recipe.creator_username}` : `Subscribe to ${recipe.creator_username}`}
+              </button>
+            )}
+            <button className="btn secondary small" onClick={handleToggleSave}>{recipe.is_saved ? "Saved ✓" : "Save Recipe"}</button>
+            <button className="btn secondary small" onClick={() => setShareOpen(true)}>Share Recipe</button>
             {isOwner && <Link className="btn secondary small" to={`/upload?id=${recipe.id}`}>Edit recipe</Link>}
+            {isOwner && <button className="btn danger small" onClick={handleDelete}>Delete recipe</button>}
           </div>
         </div>
 
@@ -159,6 +191,10 @@ export default function Recipe() {
             ))}
         </div>
       </div>
+
+      {shareOpen && <ShareModal recipe={recipe} url={window.location.href} onClose={() => setShareOpen(false)} />}
+      {confirmModal}
+      {toast}
     </Layout>
   );
 }

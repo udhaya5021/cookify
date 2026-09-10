@@ -63,6 +63,16 @@ def signal_typing(body: TypingRequest, user: User = Depends(get_current_user)):
     return {"ok": True}
 
 
+@router.get("/unread-count")
+def unread_count(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Powers the Navbar badge — polled independently of any open chat, so
+    it stays current even if you never open Messages."""
+    count = db.query(ChatMessage).filter(
+        ChatMessage.recipient_id == user.id, ChatMessage.is_read.is_(False)
+    ).count()
+    return {"count": count}
+
+
 @router.get("/conversations")
 def list_conversations(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Everyone this user has exchanged messages with, most recent first.
@@ -80,9 +90,12 @@ def list_conversations(user: User = Depends(get_current_user), db: Session = Dep
     # Messages arrive newest-first, so the first time a partner appears is
     # their latest message — dict insertion order keeps the list sorted.
     latest: dict[int, ChatMessage] = {}
+    unread_by_partner: dict[int, int] = {}
     for m in messages:
         other_id = m.recipient_id if m.sender_id == user.id else m.sender_id
         latest.setdefault(other_id, m)
+        if m.recipient_id == user.id and not m.is_read:
+            unread_by_partner[other_id] = unread_by_partner.get(other_id, 0) + 1
 
     if not latest:
         return []
@@ -96,6 +109,7 @@ def list_conversations(user: User = Depends(get_current_user), db: Session = Dep
             "last_message": m.text,
             "last_at": m.created_at.isoformat(),
             "from_me": m.sender_id == user.id,
+            "unread_count": unread_by_partner.get(other_id, 0),
         }
         for other_id, m in latest.items()
     ]
@@ -114,6 +128,17 @@ def get_conversation(other_user_id: int, user: User = Depends(get_current_user),
         .order_by(ChatMessage.created_at.asc())
         .all()
     )
+
+    # Opening (or polling) this conversation is what "reading" it means here —
+    # mark anything the other side sent us as read so the unread badge/inbox
+    # highlight clears. Safe to re-run on every 4s poll; it's a no-op once
+    # everything's already marked.
+    db.query(ChatMessage).filter(
+        ChatMessage.sender_id == other_user_id, ChatMessage.recipient_id == user.id,
+        ChatMessage.is_read.is_(False),
+    ).update({"is_read": True})
+    db.commit()
+
     # Piggy-backed on the existing poll rather than a second endpoint — with a
     # 4s interval, doubling the request count for a typing dot isn't worth it.
     last_typed = _typing.get((other_user_id, user.id))

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import Layout from "../components/Layout";
-import { api, API_BASE } from "../api";
+import { api, API_BASE, getToken } from "../api";
 
 export default function Messages() {
   const [conversations, setConversations] = useState(null);
@@ -11,6 +11,8 @@ export default function Messages() {
       .then(setConversations)
       .catch(() => setConversations([]));
   }, []);
+
+  if (!getToken()) return <Navigate to="/login" replace />;
 
   return (
     <Layout>
@@ -26,7 +28,7 @@ export default function Messages() {
         ) : (
           <div className="conversation-list">
             {conversations.map((c) => (
-              <Link key={c.user_id} className="conversation" to={`/chat/${c.user_id}`}>
+              <Link key={c.user_id} className={`conversation ${c.unread_count > 0 ? "unread" : ""}`} to={`/chat/${c.user_id}`}>
                 {c.profile_picture_url
                   ? <img className="conversation-avatar" src={`${API_BASE}${c.profile_picture_url}`} alt="" />
                   : <div className="conversation-avatar conversation-avatar-empty">{c.username.charAt(0).toUpperCase()}</div>}
@@ -36,7 +38,10 @@ export default function Messages() {
                     {c.from_me && <span className="meta">You: </span>}{c.last_message}
                   </div>
                 </div>
-                <time className="meta">{new Date(c.last_at).toLocaleDateString()}</time>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                  <time className="meta">{new Date(c.last_at).toLocaleDateString()}</time>
+                  {c.unread_count > 0 && <span className="unread-badge">{c.unread_count > 9 ? "9+" : c.unread_count}</span>}
+                </div>
               </Link>
             ))}
           </div>

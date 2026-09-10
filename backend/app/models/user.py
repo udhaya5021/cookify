@@ -1,7 +1,7 @@
 """User model — matches the assignment's User + User_Preference entities."""
 import re
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, func
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, func, LargeBinary
 from sqlalchemy.orm import relationship
 from app.database import Base
 from app.services.security import hash_password, verify_password, is_password_valid
@@ -24,27 +24,26 @@ class User(Base):
     age = Column(Integer, nullable=True)
     gender = Column(String, default="")
     bio = Column(String, default="")
-    profile_picture_url = Column(String, default="")
+    profile_picture_url = Column(String, default="")   # points at GET /api/users/{id}/avatar
+    profile_picture_data = Column(LargeBinary, nullable=True)  # actual bytes, stored in Postgres
+    profile_picture_content_type = Column(String, default="")
 
-    # 2FA. The wireframe specifies an emailed 6-digit code, which stays the
-    # default; "totp" swaps that for an authenticator app (Google Authenticator,
-    # Authy, 1Password...), which is a genuinely separate factor rather than
-    # one that shares a channel with password reset.
-    two_fa_enabled = Column(Boolean, default=True)
-    # Authenticator app is the default second factor: it doesn't share a
-    # channel with password reset the way an emailed code does. Enrolment
-    # happens during signup (see auth.signup), and login falls back to an
-    # emailed code only while an account hasn't finished enrolling — without
-    # that fallback, abandoning the QR step would lock the account out.
-    two_fa_method = Column(String, default="totp")  # "totp" | "email"
-    # Set when TOTP setup begins, but only trusted once the user proves they
-    # can generate a code from it — see totp_confirmed.
+    # 2FA is an authenticator app (TOTP) for every account — there is no
+    # second method and no opt-out, so there is no flag encoding a choice.
+    # The secret is issued at signup but only trusted once the user proves
+    # they can generate a code from it, which is what totp_confirmed records.
     totp_secret = Column(String, default="")
     totp_confirmed = Column(Boolean, default=False)
 
     # Ban system — "banned after 3 warnings" (test case 11)
     warning_count = Column(Integer, default=0)
     is_banned = Column(Boolean, default=False)
+
+    # Forgot-password: a random, single-use, time-limited token — proves the
+    # requester controls the account's inbox before any password changes,
+    # rather than trusting "I know the username" alone.
+    reset_token = Column(String, default="")
+    reset_token_expires = Column(DateTime, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -64,6 +63,13 @@ class User(Base):
         """Sign Up Method pseudocode, start to finish."""
         username = (username or "").strip()
         email = (email or "").strip()
+
+        # A signup form field with `required` still lets " " (all-spaces)
+        # through — strip() reduces that to "", and without this check it'd
+        # sail past the uniqueness query below (nothing else is named ""
+        # yet) and create an account with a blank, unloggable-into username.
+        if not (3 <= len(username) <= 30):
+            raise ValueError("Username must be between 3 and 30 characters")
 
         # Uniqueness has to be case-insensitive to match how login looks
         # accounts up — otherwise "Udhay" and "udhay" could both exist and

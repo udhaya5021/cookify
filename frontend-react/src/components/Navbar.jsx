@@ -1,6 +1,8 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useEffect } from "react";
-import { getToken, clearToken, getMyUserId } from "../api";
+import { useEffect, useState } from "react";
+import { api, getToken, clearToken, getMyUserId } from "../api";
+
+const UNREAD_POLL_INTERVAL = 8000; // independent of the Chat page's own 4s poll — this runs everywhere
 
 function loadGoogleTranslate() {
   if (document.getElementById("google-translate-script")) return;
@@ -12,17 +14,29 @@ function loadGoogleTranslate() {
   };
   const script = document.createElement("script");
   script.id = "google-translate-script";
-  script.src = "https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit";
+  script.src = "//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit";
+  script.async = true;
   document.body.appendChild(script);
 }
 
 export default function Navbar() {
   const loggedIn = !!getToken();
   const navigate = useNavigate();
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     loadGoogleTranslate();
   }, []);
+
+  useEffect(() => {
+    if (!loggedIn) return;
+    function poll() {
+      api("/api/chat/unread-count", { auth: true }).then((d) => setUnreadCount(d.count)).catch(() => {});
+    }
+    poll();
+    const interval = setInterval(poll, UNREAD_POLL_INTERVAL);
+    return () => clearInterval(interval);
+  }, [loggedIn]);
 
   function logout() {
     clearToken();
@@ -42,11 +56,16 @@ export default function Navbar() {
       <nav>
         <Link to="/browse">Explore</Link>
         {loggedIn && <Link to="/upload">Upload Recipe</Link>}
-        {loggedIn && <Link to="/messages">Messages</Link>}
+        {loggedIn && (
+          <Link to="/messages" className="messages-link">
+            Messages
+            {unreadCount > 0 && <span className="unread-badge">{unreadCount > 9 ? "9+" : unreadCount}</span>}
+          </Link>
+        )}
         {loggedIn && <Link to={`/profile/${getMyUserId()}`}>Profile</Link>}
         <div id="google_translate_element"></div>
         {loggedIn
-          ? <a href="#" className="logout" onClick={(e) => { e.preventDefault(); logout(); }}>Logout</a>
+          ? <button type="button" className="logout" onClick={logout}>Logout</button>
           : <Link to="/login">Login</Link>}
       </nav>
     </div>

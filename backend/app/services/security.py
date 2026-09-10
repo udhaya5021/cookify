@@ -1,4 +1,6 @@
 """Password hashing, JWT session tokens, and OTP generation."""
+import os
+import secrets as secrets_module
 from typing import Optional
 import random
 import string
@@ -6,7 +8,13 @@ from datetime import datetime, timedelta
 from passlib.context import CryptContext
 from jose import jwt
 
-SECRET_KEY = "cookify-dev-secret-change-in-production"
+# A hardcoded value here would be sitting in plain sight in the source (and
+# this repo is public) — anyone reading it could forge a valid session for
+# any account. Real deployments set SECRET_KEY in .env (gitignored); the
+# fallback only kicks in if it's missing, and is regenerated per process
+# start rather than a fixed committed string — safer, at the cost of
+# invalidating sessions on restart until a real one is configured.
+SECRET_KEY = os.getenv("SECRET_KEY") or secrets_module.token_hex(32)
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 

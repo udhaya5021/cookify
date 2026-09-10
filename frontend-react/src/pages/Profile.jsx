@@ -1,12 +1,17 @@
 import { useState, useEffect } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
 import PageLoading from "../components/PageLoading";
 import StarRating from "../components/StarRating";
+import { useConfirm } from "../hooks/useConfirm";
+import { useToast } from "../hooks/useToast";
 import { api, API_BASE, requireAuthOrAlert, getMyUserId } from "../authGuard";
 
 export default function Profile() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const [confirmModal, confirm] = useConfirm();
+  const [toast, showToast] = useToast();
   const [profile, setProfile] = useState(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -16,8 +21,7 @@ export default function Profile() {
   const [pfpPreview, setPfpPreview] = useState(null);
   const [editing, setEditing] = useState(false);
   const [connections, setConnections] = useState(null); // { kind, users } | null
-  const [twoFa, setTwoFa] = useState(true);
-  const [twoFaMethod, setTwoFaMethod] = useState("email");
+  const [totpConfirmed, setTotpConfirmed] = useState(false);
   const [totpSetup, setTotpSetup] = useState(null);   // { qr_svg, secret }
   const [totpCode, setTotpCode] = useState("");
   const [totpMsg, setTotpMsg] = useState(null);
@@ -31,17 +35,19 @@ export default function Profile() {
     e.preventDefault();
     try {
       await api("/api/users/me/2fa/totp/confirm", { method: "POST", auth: true, body: { code: totpCode } });
-      setTwoFaMethod("totp"); setTwoFa(true); setTotpSetup(null); setTotpCode("");
+      setTotpConfirmed(true); setTotpSetup(null); setTotpCode("");
       setTotpMsg({ type: "success", text: "Authenticator app enabled." });
     } catch (err) {
       setTotpMsg({ type: "error", text: err.message });
     }
   }
 
-  async function disableTotp() {
-    await api("/api/users/me/2fa/totp/disable", { method: "POST", auth: true });
-    setTwoFaMethod("email"); setTotpSetup(null);
-    setTotpMsg({ type: "success", text: "Back to emailed codes." });
+  async function resetTotp() {
+    const ok = await confirm("Reset your authenticator? You'll set it up again at your next login.");
+    if (!ok) return;
+    await api("/api/users/me/2fa/totp/reset", { method: "POST", auth: true });
+    setTotpConfirmed(false); setTotpSetup(null);
+    setTotpMsg({ type: "success", text: "Reset — you'll scan a new QR next time you log in." });
   }
   const isMe = parseInt(id, 10) === getMyUserId();
 
@@ -59,7 +65,11 @@ export default function Profile() {
   }
 
   async function load() {
-    const p = await api(`/api/users/${id}`);
+    // auth:true is required (not just harmless) here — the backend uses it
+    // to know *who's* viewing, so it can report whether this viewer is
+    // already subscribed. Without it every load looks like an anonymous
+    // visit and is_subscribed always comes back false.
+    const p = await api(`/api/users/${id}`, { auth: true });
     setProfile(p);
     setFirstName(p.first_name || "");
     setLastName(p.last_name || "");
@@ -69,20 +79,35 @@ export default function Profile() {
       // 2FA state is owner-only, so it comes from a separate settings call
       // rather than the public profile payload.
       api("/api/users/me/settings", { auth: true })
-        .then((s) => { setTwoFa(s.two_fa_enabled); setTwoFaMethod(s.two_fa_method || "email"); })
+        .then((s) => setTotpConfirmed(s.totp_confirmed))
         .catch(() => {});
     }
   }
-  useEffect(() => { load(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    // React Router reuses this same component instance when only the :id
+    // param changes (e.g. clicking a name in the followers/following list) —
+    // it does not unmount/remount. Without this, clicking through to another
+    // profile keeps whatever panel was open (followers list, edit mode, TOTP
+    // setup) stuck on screen, now showing stale data over the new profile.
+    setConnections(null);
+    setEditing(false);
+    setTotpSetup(null);
+    setTotpCode("");
+    setTotpMsg(null);
+    setPfp(null);
+    setPfpPreview(null);
+    load();
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function handleSubscribe() {
+  async function handleToggleSubscribe() {
     if (!requireAuthOrAlert()) return;
+    const wasSubscribed = profile.is_subscribed;
     try {
-      const res = await api(`/api/users/${id}/subscribe`, { method: "POST", auth: true });
-      alert(res.message);
-      load();
+      const res = await api(`/api/users/${id}/subscribe`, { method: wasSubscribed ? "DELETE" : "POST", auth: true });
+      showToast(res.message, "success");
+      setProfile((prev) => ({ ...prev, is_subscribed: !wasSubscribed, followers: prev.followers + (wasSubscribed ? -1 : 1) }));
     } catch (err) {
-      alert(err.message);
+      showToast(err.message, "error");
     }
   }
 
@@ -92,8 +117,10 @@ export default function Profile() {
     form.append("first_name", firstName);
     form.append("last_name", lastName);
     form.append("bio", bio);
-    form.append("age", age || "");
-    form.append("two_fa_enabled", twoFa);
+    // Omit entirely when blank — the backend's age field is a real
+    // Optional[int] with ge/le bounds; sending "" fails int parsing and
+    // used to 422 the *whole* edit, not just silently skip age.
+    if (age !== "") form.append("age", age);
     if (pfp) form.append("profile_picture", pfp);
     try {
       await api("/api/users/me", { method: "PUT", auth: true, form });
@@ -102,7 +129,7 @@ export default function Profile() {
       setEditing(false);
       load();
     } catch (err) {
-      alert(err.message);
+      showToast(err.message, "error");
     }
   }
 
@@ -114,7 +141,7 @@ export default function Profile() {
         <div className="recipe-detail">
           <div className="profile-header">
             {profile.profile_picture_url
-              ? <img className="profile-avatar" src={`${API_BASE}${profile.profile_picture_url}`} alt="" />
+              ? <img className="profile-avatar" src={profile.profile_picture_url.startsWith("http") ? profile.profile_picture_url : `${API_BASE}${profile.profile_picture_url}`} alt="" />
               : <div className="profile-avatar profile-avatar-empty">{profile.username.charAt(0).toUpperCase()}</div>}
             <div className="profile-info">
               <h1>{profile.username}</h1>
@@ -142,9 +169,9 @@ export default function Profile() {
                     <span className="meta">No {connections.kind} yet.</span>
                   ) : connections.users.map((u) => (
                     <Link key={u.id} className="connection" to={`/profile/${u.id}`}>
-                      {u.profile_picture_url
-                        ? <img className="connection-avatar" src={`${API_BASE}${u.profile_picture_url}`} alt="" />
-                        : <div className="connection-avatar connection-avatar-empty">{u.username.charAt(0).toUpperCase()}</div>}
+                        {u.profile_picture_url
+                          ? <img className="connection-avatar" src={u.profile_picture_url.startsWith("http") ? u.profile_picture_url : `${API_BASE}${u.profile_picture_url}`} alt="" />
+                          : <div className="connection-avatar connection-avatar-empty">{u.username.charAt(0).toUpperCase()}</div>}
                       {u.username}
                     </Link>
                   ))}
@@ -158,8 +185,8 @@ export default function Profile() {
                   </button>
                 ) : (
                   <>
-                    <button className="btn small secondary" onClick={handleSubscribe}>🔔 Subscribe</button>
-                    <Link className="btn small secondary" to={`/chat/${id}`}>Message</Link>
+                    <button className="btn small secondary" onClick={handleToggleSubscribe}>{profile.is_subscribed ? "🔔 Subscribed ✓" : "🔔 Subscribe"}</button>
+                    <button className="btn small secondary" onClick={() => requireAuthOrAlert() && navigate(`/chat/${id}`)}>Message</button>
                   </>
                 )}
               </div>
@@ -176,50 +203,42 @@ export default function Profile() {
                 <input type="text" placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
               </div>
               <textarea rows={3} placeholder="Short bio" value={bio} onChange={(e) => setBio(e.target.value)}></textarea>
-              <input type="number" placeholder="Age" style={{ maxWidth: 140 }} value={age} onChange={(e) => setAge(e.target.value)} />
+              <input type="number" min="0" max="120" placeholder="Age" style={{ maxWidth: 140 }} value={age} onChange={(e) => setAge(e.target.value)} />
 
-              <label className={`chip-toggle ${twoFa ? "active" : ""}`} style={{ marginBottom: 16 }}>
-                <input type="checkbox" checked={twoFa} onChange={(e) => setTwoFa(e.target.checked)} />
-                🔒 Two-factor authentication {twoFa ? "on" : "off"}
-              </label>
-              <p className="meta" style={{ margin: "-8px 0 12px" }}>
-                {!twoFa
-                  ? "You'll log in with just your password."
-                  : twoFaMethod === "totp"
-                    ? "You'll enter a code from your authenticator app each time you log in."
-                    : "You'll get a 6-digit code by email each time you log in."}
-              </p>
+              <div className="totp-box">
+                <strong style={{ fontSize: 14 }}>🔒 Two-factor authentication</strong>
+                <p className="meta" style={{ margin: "4px 0 10px" }}>
+                  {totpConfirmed
+                    ? "Your authenticator app is set up. You'll enter a code from it each time you log in."
+                    : "Not set up yet — you'll be asked to scan a QR at your next login."}
+                </p>
+                {totpMsg && <div className={`alert ${totpMsg.type}`}>{totpMsg.text}</div>}
 
-              {twoFa && (
-                <div className="totp-box">
-                  {totpMsg && <div className={`alert ${totpMsg.type}`}>{totpMsg.text}</div>}
-
-                  {twoFaMethod === "totp" ? (
-                    <button type="button" className="btn small secondary" onClick={disableTotp}>
-                      Switch back to emailed codes
-                    </button>
-                  ) : !totpSetup ? (
-                    <button type="button" className="btn small secondary" onClick={startTotpSetup}>
-                      Use an authenticator app instead
-                    </button>
-                  ) : (
-                    <>
-                      <p className="meta" style={{ marginBottom: 10 }}>
-                        Scan this with Google Authenticator, Authy, or 1Password —
-                        then enter the code it shows to finish.
-                      </p>
-                      <div className="totp-qr" dangerouslySetInnerHTML={{ __html: totpSetup.qr_svg }} />
-                      <p className="meta">Can't scan? Enter this key manually:</p>
-                      <code className="totp-secret">{totpSetup.secret}</code>
-                      <div className="field-row" style={{ marginTop: 10 }}>
-                        <input type="text" inputMode="numeric" placeholder="6-digit code"
-                          value={totpCode} onChange={(e) => setTotpCode(e.target.value)} />
-                        <button type="button" className="btn small" onClick={confirmTotp}>Verify &amp; enable</button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
+                {totpConfirmed ? (
+                  <button type="button" className="btn small secondary" onClick={resetTotp}>
+                    Set up on a new phone
+                  </button>
+                ) : !totpSetup ? (
+                  <button type="button" className="btn small secondary" onClick={startTotpSetup}>
+                    Set up now
+                  </button>
+                ) : (
+                  <>
+                    <p className="meta" style={{ marginBottom: 10 }}>
+                      Scan this with Google Authenticator, Authy, or 1Password —
+                      then enter the code it shows to finish.
+                    </p>
+                    <div className="totp-qr" dangerouslySetInnerHTML={{ __html: totpSetup.qr_svg }} />
+                    <p className="meta">Can't scan? Enter this key manually:</p>
+                    <code className="totp-secret">{totpSetup.secret}</code>
+                    <div className="field-row" style={{ marginTop: 10 }}>
+                      <input type="text" inputMode="numeric" placeholder="6-digit code"
+                        value={totpCode} onChange={(e) => setTotpCode(e.target.value)} />
+                      <button type="button" className="btn small" onClick={confirmTotp}>Verify &amp; enable</button>
+                    </div>
+                  </>
+                )}
+              </div>
 
               <div className="pfp-row">
                 {(pfpPreview || profile.profile_picture_url) && (
@@ -286,6 +305,9 @@ export default function Profile() {
             ))}
         </div>
       </div>
+
+      {confirmModal}
+      {toast}
     </Layout>
   );
 }

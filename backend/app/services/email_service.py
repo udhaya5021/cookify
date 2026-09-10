@@ -84,6 +84,17 @@ def send_new_rating_notification(to: str, rater_username: str, recipe_title: str
     )
 
 
+def send_password_reset_email(to: str, reset_link: str) -> None:
+    send_email(
+        to,
+        "Reset your Cookify password",
+        f"Someone (hopefully you) asked to reset the password on this account.\n\n"
+        f"Reset it here: {reset_link}\n\n"
+        f"This link works once and expires in 30 minutes. If you didn't request "
+        f"this, you can ignore it — your password won't change.",
+    )
+
+
 def send_new_subscriber_notification(to: str, subscriber_username: str) -> None:
     send_email(
         to,

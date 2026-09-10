@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import Layout from "../components/Layout";
 import StarRating from "../components/StarRating";
-import { api, API_BASE } from "../api";
+import { api, API_BASE, getToken } from "../api";
 
 export default function Browse() {
   const [q, setQ] = useState("");
@@ -12,6 +12,7 @@ export default function Browse() {
   const [time, setTime] = useState("");
   const [calories, setCalories] = useState("");
   const [vegOnly, setVegOnly] = useState(false);
+  const [followingOnly, setFollowingOnly] = useState(false);
   const [dietary, setDietary] = useState("");
   const [foodType, setFoodType] = useState("");
   const [region, setRegion] = useState("");
@@ -23,8 +24,8 @@ export default function Browse() {
 
   const loadRecipes = useCallback(async () => {
     const params = new URLSearchParams({
-      q, ingredient, utensil, veg_only: vegOnly, dietary_tag: dietary,
-      food_type: foodType, region, sort,
+      q, ingredient, utensil, veg_only: vegOnly, following_only: followingOnly,
+      dietary_tag: dietary, food_type: foodType, region, sort,
     });
     if (cost) params.set("max_cost", cost);
     if (time) params.set("max_time", time);
@@ -33,17 +34,22 @@ export default function Browse() {
     if (minDifficulty && minDifficulty !== "0") params.set("min_difficulty", minDifficulty);
     if (minRating && minRating !== "0") params.set("min_rating", minRating);
 
-    const data = await api(`/api/recipes?${params.toString()}`);
+    // auth:true so following_only can resolve against *this* viewer's
+    // subscriptions — harmless when logged out, api() just skips the header.
+    const data = await api(`/api/recipes?${params.toString()}`, { auth: true });
     setRecipes(data.recipes);
-  }, [q, ingredient, utensil, cost, time, calories, vegOnly, dietary, foodType, region, minSpeed, minDifficulty, minRating, sort]);
+  }, [q, ingredient, utensil, cost, time, calories, vegOnly, followingOnly, dietary, foodType, region, minSpeed, minDifficulty, minRating, sort]);
 
-  useEffect(() => { loadRecipes(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Runs on mount, and again whenever the Following toggle changes — a
+  // toggle (unlike the text/number filters, which need an explicit Search
+  // click) reads as an instant switch, so this one re-queries immediately.
+  useEffect(() => { loadRecipes(); }, [followingOnly]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <Layout>
       <div className="container">
         <div className="search-panel">
-          <h1 style={{ textAlign: "center", marginBottom: 18 }}>Explore Recipes</h1>
+          <h1 style={{ textAlign: "center", marginBottom: 18 }}>Explore Recipe</h1>
           <div className="search-row">
             <input type="text" placeholder="Search recipe title..." value={q} onChange={(e) => setQ(e.target.value)} />
             <button className="btn" onClick={loadRecipes}>Search</button>
@@ -90,10 +96,18 @@ export default function Browse() {
                 </select>
               </label>
             </div>
-            <label className={`chip-toggle ${vegOnly ? "active" : ""}`} style={{ marginTop: 14 }}>
-              <input type="checkbox" checked={vegOnly} onChange={(e) => setVegOnly(e.target.checked)} />
-              🌱 Veg only
-            </label>
+            <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+              <label className={`chip-toggle ${vegOnly ? "active" : ""}`}>
+                <input type="checkbox" checked={vegOnly} onChange={(e) => setVegOnly(e.target.checked)} />
+                🌱 Veg only
+              </label>
+              {getToken() && (
+                <label className={`chip-toggle ${followingOnly ? "active" : ""}`}>
+                  <input type="checkbox" checked={followingOnly} onChange={(e) => setFollowingOnly(e.target.checked)} />
+                  🔔 Following only
+                </label>
+              )}
+            </div>
           </div>
 
           <div className="filter-section">
@@ -128,14 +142,27 @@ export default function Browse() {
             <div key={r.id} className={`recipe-card ${r.recipe_type === "veg" ? "veg" : ""}`}>
               <div className="media-wrap">
                 {r.media_url
-                  ? <img className="thumb" src={`${API_BASE}${r.media_url}`} alt="" />
+                  ? <img className="thumb" src={r.media_url.startsWith("http") ? r.media_url : `${API_BASE}${r.media_url}`} alt="" />
                   : <div className="thumb thumb-placeholder">{r.title.charAt(0).toUpperCase()}</div>}
                 <span className={`badge ${r.recipe_type === "veg" ? "veg" : "nonveg"}`}>{r.recipe_type === "veg" ? "Veg" : "Non-Veg"}</span>
               </div>
               <div className="card-body">
+                <div className="author-row">
+                  {r.creator_profile_picture_url
+                    ? <img className="author-avatar" src={r.creator_profile_picture_url.startsWith("http") ? r.creator_profile_picture_url : `${API_BASE}${r.creator_profile_picture_url}`} alt="" />
+                    : <div className="author-avatar author-avatar-empty">{(r.creator_username || "?").charAt(0).toUpperCase()}</div>}
+                  <div className="author-info">
+                    <div className="author-name">{r.creator_username || "Unknown"}</div>
+                    {r.creator_bio && <div className="author-bio">{r.creator_bio}</div>}
+                  </div>
+                </div>
                 <div className="title">{r.title}</div>
                 <div className="meta">By {r.creator_username || "Unknown"}{r.food_type ? " · " + r.food_type : ""}{r.region ? " · " + r.region : ""}</div>
-                <div className="meta">Speed {r.speed}/5 · Difficulty {r.difficulty}/5</div>
+                <div className="meta">
+                  <span className="fact-chip">⏱ {r.cooking_time_minutes || "—"} min</span>
+                  {r.servings && <span className="fact-chip">🍽 {r.servings}</span>}
+                  <span style={{ marginLeft: 8 }}>Speed {r.speed}/5 · Difficulty {r.difficulty}/5</span>
+                </div>
                 <StarRating average={r.average_rating} count={r.rating_count} />
                 <Link className="btn small" to={`/recipe/${r.id}`}>Open recipe</Link>
               </div>

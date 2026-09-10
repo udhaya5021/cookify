@@ -168,6 +168,17 @@ def subscribe(creator_id: int, user: User = Depends(get_current_user), db: Sessi
     return {"message": f"Subscribed to {creator.username}"}
 
 
+@router.delete("/users/{creator_id}/subscribe")
+def unsubscribe(creator_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    deleted = db.query(Subscription).filter(
+        Subscription.subscriber_id == user.id, Subscription.creator_id == creator_id
+    ).delete()
+    db.commit()
+    if not deleted:
+        return {"message": "Not subscribed"}
+    return {"message": "Unsubscribed"}
+
+
 def notify_subscribers_of_new_recipe(db: Session, creator: User, recipe: Recipe) -> None:
     """Called from recipes.py right after a successful upload."""
     subs = db.query(Subscription).filter(Subscription.creator_id == creator.id).all()

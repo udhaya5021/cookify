@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 export default function Footer() {
   return (
     <footer>
@@ -6,7 +8,7 @@ export default function Footer() {
         <div>Contact Info: +91 1234567890</div>
         <div>+91 0987654321</div>
       </div>
-      <a href="#">Learn More About Us</a>
+      <Link to="/about">Learn More About Us</Link>
     </footer>
   );
 }

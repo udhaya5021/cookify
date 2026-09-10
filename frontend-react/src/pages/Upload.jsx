@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, Navigate } from "react-router-dom";
 import Layout from "../components/Layout";
 import StarPicker from "../components/StarPicker";
-import { api, API_BASE } from "../api";
+import { api, API_BASE, getToken } from "../api";
 
 const DIETARY_OPTIONS = [
   ["vegetarian", "Vegetarian"], ["eggetarian", "Eggetarian"], ["pescetarian", "Pescetarian"],
@@ -87,6 +87,12 @@ export default function Upload() {
     }
   }
 
+  // Recipe Upload Method pseudocode: "CALL checkUserLoginStatus() ... IF NOT
+  // LoggedIn THEN REDIRECT to Login Page" — enforced here, not just by
+  // hiding the nav link, so a direct /upload visit while logged out redirects
+  // instead of silently failing on submit.
+  if (!getToken()) return <Navigate to="/login" replace />;
+
   return (
     <Layout>
       <div className="form-card" style={{ maxWidth: 520 }}>
@@ -99,12 +105,12 @@ export default function Upload() {
           <textarea rows={6} placeholder="Steps — one per line" required value={steps} onChange={(e) => setSteps(e.target.value)}></textarea>
 
           <div style={{ display: "flex", gap: 10 }}>
-            <input type="number" placeholder="Cost (₹)" value={cost} onChange={(e) => setCost(e.target.value)} />
-            <input type="number" placeholder="Cook time (min)" value={time} onChange={(e) => setTime(e.target.value)} />
+            <input type="number" min="0" placeholder="Cost (₹)" value={cost} onChange={(e) => setCost(e.target.value)} />
+            <input type="number" min="0" placeholder="Cook time (min)" value={time} onChange={(e) => setTime(e.target.value)} />
           </div>
           <div style={{ display: "flex", gap: 10 }}>
-            <input type="number" placeholder="Calories" value={calories} onChange={(e) => setCalories(e.target.value)} />
-            <input type="number" placeholder="Protein (g)" value={protein} onChange={(e) => setProtein(e.target.value)} />
+            <input type="number" min="0" placeholder="Calories" value={calories} onChange={(e) => setCalories(e.target.value)} />
+            <input type="number" min="0" placeholder="Protein (g)" value={protein} onChange={(e) => setProtein(e.target.value)} />
           </div>
 
           <select value={dietaryTag} onChange={(e) => setDietaryTag(e.target.value)}>

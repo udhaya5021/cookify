@@ -1,27 +1,23 @@
 """Recipe upload, search/filter, and view — matches the assignment's
 Recipe Upload Method and Recipe Search Method pseudocode."""
 from typing import Optional
-import os
-import shutil
-import uuid
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
 from app.database import get_db
-from app.deps import get_current_user
-from app.models import User, Recipe
+from app.deps import get_current_user, get_current_user_optional
+from app.models import User, Recipe, SavedRecipe, Subscription
 from app.models.recipe import DIETARY_TAGS
+from app.services.media import read_validated_media
 
 router = APIRouter(prefix="/api/recipes", tags=["recipes"])
 
-UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "..", "static", "uploads")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-_ALLOWED_MEDIA_EXT = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".mp4", ".webm"}
 
-
-def _serialize(r: Recipe) -> dict:
+def _serialize(r: Recipe, *, is_saved: bool = False, is_subscribed_to_creator: bool = False) -> dict:
     return {
+        "is_saved": is_saved,
+        "is_subscribed_to_creator": is_subscribed_to_creator,
         "id": r.id,
         "title": r.title,
         "ingredients": r.ingredients,
@@ -42,6 +38,8 @@ def _serialize(r: Recipe) -> dict:
         "recipe_type": r.recipe_type,  # "veg" | "nonveg"
         "creator_id": r.creator_id,
         "creator_username": r.creator.username if r.creator else None,
+        "creator_profile_picture_url": r.creator.profile_picture_url if r.creator else None,
+        "creator_bio": r.creator.bio if r.creator else None,
         "average_rating": r.average_rating,
         "rating_count": len(r.ratings),
     }
@@ -53,12 +51,14 @@ async def upload_recipe(
     ingredients: str = Form(...),
     utensils: str = Form(""),
     steps: str = Form(...),
-    cost: float = Form(0.0),
-    cooking_time_minutes: int = Form(0),
-    calories: int = Form(0),
-    protein: int = Form(0),
-    speed: float = Form(3.0),
-    difficulty: float = Form(3.0),
+    # Bounds enforced server-side, not just by the StarPicker/number-input
+    # UI — a direct API call (or /docs) bypasses client-side clamping entirely.
+    cost: float = Form(0.0, ge=0),
+    cooking_time_minutes: int = Form(0, ge=0),
+    calories: int = Form(0, ge=0),
+    protein: int = Form(0, ge=0),
+    speed: float = Form(3.0, ge=0.5, le=5),
+    difficulty: float = Form(3.0, ge=0.5, le=5),
     dietary_tag: str = Form("vegetarian"),
     food_type: str = Form(""),
     region: str = Form(""),
@@ -71,26 +71,28 @@ async def upload_recipe(
     if dietary_tag not in DIETARY_TAGS:
         raise HTTPException(400, f"Error: dietary_tag must be one of {DIETARY_TAGS}")
 
-    media_url = ""
+    media_bytes, media_content_type = (None, "")
     if media is not None:
-        ext = os.path.splitext(media.filename or "")[1].lower()
-        if ext not in _ALLOWED_MEDIA_EXT:
-            raise HTTPException(400, "Error: Invalid image/video format")
-        filename = f"{uuid.uuid4().hex}{ext}"
-        dest = os.path.join(UPLOAD_DIR, filename)
-        with open(dest, "wb") as f:
-            shutil.copyfileobj(media.file, f)
-        media_url = f"/static/uploads/{filename}"
+        media_bytes, media_content_type = await read_validated_media(media)
 
     # UML: User.uploadRecipe() — the model picks the Veg/NonVeg subclass, so
     # polymorphism is decided in the domain layer rather than in the route.
     recipe = user.uploadRecipe(
         db,
         title=title, ingredients=ingredients, utensils=utensils, steps=steps,
-        media_url=media_url, cost=cost, cooking_time_minutes=cooking_time_minutes,
+        media_url="", cost=cost, cooking_time_minutes=cooking_time_minutes,
         calories=calories, protein=protein, speed=speed, difficulty=difficulty,
         dietary_tag=dietary_tag, food_type=food_type, region=region,
     )
+
+    # media_url points at this recipe's own /media endpoint — it can only be
+    # built once the recipe has an id, so this happens after the insert above.
+    if media_bytes:
+        recipe.media_data = media_bytes
+        recipe.media_content_type = media_content_type
+        recipe.media_url = f"/api/recipes/{recipe.id}/media"
+        db.commit()
+        db.refresh(recipe)
 
     # Notify subscribers — fire-and-forget style; see social.py for the actual
     # subscription-triggered email, kept there to avoid circular imports.
@@ -98,6 +100,17 @@ async def upload_recipe(
     notify_subscribers_of_new_recipe(db, user, recipe)
 
     return {"message": "Recipe Uploaded Successfully", "recipe": _serialize(recipe)}
+
+
+@router.get("/{recipe_id}/media")
+def get_recipe_media(recipe_id: int, db: Session = Depends(get_db)):
+    """Serves the recipe's photo/video straight out of Postgres — no local
+    disk involved, so this works identically from any device, network, or
+    number of backend instances, and survives redeploys."""
+    recipe = db.query(Recipe).get(recipe_id)
+    if not recipe or not recipe.media_data:
+        raise HTTPException(404, "No media for this recipe")
+    return Response(content=recipe.media_data, media_type=recipe.media_content_type or "application/octet-stream")
 
 
 @router.get("")
@@ -115,9 +128,20 @@ def search_recipes(
     food_type: str = "",
     region: str = "",
     veg_only: bool = False,
+    following_only: bool = False,  # test case 13: surface recipes from creators this viewer subscribes to
     sort: str = "popularity",  # "popularity" | "newest" | "rating"
     db: Session = Depends(get_db),
+    viewer: Optional[User] = Depends(get_current_user_optional),
 ):
+    subscribed_creator_ids = None
+    if following_only:
+        subscribed_creator_ids = [
+            s.creator_id for s in (
+                db.query(Subscription).filter(Subscription.subscriber_id == viewer.id).all()
+                if viewer else []
+            )
+        ]
+
     # UML: Recipe.searchRecipe() — the query, the polymorphic filter pass and
     # the ordering all live on the class.
     filtered = Recipe.searchRecipe(
@@ -125,17 +149,28 @@ def search_recipes(
         max_cost=max_cost, max_time=max_time, max_calories=max_calories,
         min_speed=min_speed, min_difficulty=min_difficulty, min_rating=min_rating,
         dietary_tag=dietary_tag, food_type=food_type, region=region, sort=sort,
+        subscribed_creator_ids=subscribed_creator_ids,
     )
     return {"count": len(filtered), "recipes": [_serialize(r) for r in filtered]}
 
 
 @router.get("/{recipe_id}")
-def get_recipe(recipe_id: int, db: Session = Depends(get_db)):
+def get_recipe(recipe_id: int, db: Session = Depends(get_db), viewer: Optional[User] = Depends(get_current_user_optional)):
     recipe = db.query(Recipe).get(recipe_id)
     if not recipe:
         raise HTTPException(404, "Recipe not found")
+    is_saved = bool(
+        viewer and db.query(SavedRecipe).filter(
+            SavedRecipe.user_id == viewer.id, SavedRecipe.recipe_id == recipe_id
+        ).first()
+    )
+    is_subscribed = bool(
+        viewer and viewer.id != recipe.creator_id and db.query(Subscription).filter(
+            Subscription.subscriber_id == viewer.id, Subscription.creator_id == recipe.creator_id
+        ).first()
+    )
     # UML: Recipe.showRecipe() — registers the view, then returns it.
-    return _serialize(recipe.showRecipe(db))
+    return _serialize(recipe.showRecipe(db), is_saved=is_saved, is_subscribed_to_creator=is_subscribed)
 
 
 @router.put("/{recipe_id}")
@@ -145,12 +180,12 @@ async def edit_recipe(
     ingredients: str = Form(...),
     utensils: str = Form(""),
     steps: str = Form(...),
-    cost: float = Form(0.0),
-    cooking_time_minutes: int = Form(0),
-    calories: int = Form(0),
-    protein: int = Form(0),
-    speed: float = Form(3.0),
-    difficulty: float = Form(3.0),
+    cost: float = Form(0.0, ge=0),
+    cooking_time_minutes: int = Form(0, ge=0),
+    calories: int = Form(0, ge=0),
+    protein: int = Form(0, ge=0),
+    speed: float = Form(3.0, ge=0.5, le=5),
+    difficulty: float = Form(3.0, ge=0.5, le=5),
     dietary_tag: str = Form("vegetarian"),
     food_type: str = Form(""),
     region: str = Form(""),
@@ -172,14 +207,10 @@ async def edit_recipe(
         raise HTTPException(400, f"Error: dietary_tag must be one of {DIETARY_TAGS}")
 
     if media is not None:
-        ext = os.path.splitext(media.filename or "")[1].lower()
-        if ext not in _ALLOWED_MEDIA_EXT:
-            raise HTTPException(400, "Error: Invalid image/video format")
-        filename = f"{uuid.uuid4().hex}{ext}"
-        dest = os.path.join(UPLOAD_DIR, filename)
-        with open(dest, "wb") as f:
-            shutil.copyfileobj(media.file, f)
-        recipe.media_url = f"/static/uploads/{filename}"
+        media_bytes, media_content_type = await read_validated_media(media)
+        recipe.media_data = media_bytes
+        recipe.media_content_type = media_content_type
+        recipe.media_url = f"/api/recipes/{recipe.id}/media"
 
     recipe.title = title
     recipe.ingredients = ingredients
@@ -212,3 +243,22 @@ async def edit_recipe(
     else:
         db.refresh(recipe)
     return {"message": "Recipe updated successfully", "recipe": _serialize(recipe)}
+
+
+@router.delete("/{recipe_id}")
+def delete_recipe(recipe_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Structure Diagram: Display Recipe -> Edit recipe covers editing; this
+    is its natural counterpart, gated the same way — creator only."""
+    recipe = db.query(Recipe).get(recipe_id)
+    if not recipe:
+        raise HTTPException(404, "Recipe not found")
+    if recipe.creator_id != user.id:
+        raise HTTPException(403, "Only the recipe's creator can delete it")
+
+    # Ratings/comments cascade via the Recipe.ratings/.comments relationships
+    # (cascade="all, delete-orphan"), but nothing declares that for saved-recipe
+    # bookmarks, so those need clearing first or the FK constraint blocks the delete.
+    db.query(SavedRecipe).filter(SavedRecipe.recipe_id == recipe_id).delete()
+    db.delete(recipe)
+    db.commit()
+    return {"message": "Recipe deleted successfully"}

@@ -1,4 +1,5 @@
 """Shared auth dependency — extracts the current user from a Bearer token."""
+from typing import Optional
 from fastapi import Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 
@@ -18,4 +19,19 @@ def get_current_user(authorization: str = Header(default=""), db: Session = Depe
         raise HTTPException(401, "User not found")
     if user.is_banned:
         raise HTTPException(403, "This account has been banned")
+    return user
+
+
+def get_current_user_optional(authorization: str = Header(default=""), db: Session = Depends(get_db)) -> Optional[User]:
+    """Same as get_current_user but returns None instead of 401 — for
+    endpoints that are public but behave differently when logged in (e.g. a
+    recipe's detail view showing whether *this* viewer already saved it)."""
+    if not authorization.startswith("Bearer "):
+        return None
+    user_id = decode_access_token(authorization.removeprefix("Bearer "))
+    if user_id is None:
+        return None
+    user = db.query(User).get(user_id)
+    if not user or user.is_banned:
+        return None
     return user
