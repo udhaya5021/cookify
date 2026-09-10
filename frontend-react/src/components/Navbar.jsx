@@ -1,4 +1,4 @@
-import { Link, NavLink, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { api, getToken, clearToken, getMyUserId } from "../api";
 
@@ -23,41 +23,6 @@ function loadGoogleTranslate() {
   document.body.appendChild(script);
 }
 
-// On switching language, Google's own script (not just its initial markup)
-// injects a full-width banner iframe and pushes the page down by setting an
-// inline style on <body> or <html> — and it does this after the page has
-// already loaded, sometimes more than once, which is why a CSS `!important`
-// override alone doesn't stick: a later inline-style write from JS wins
-// over any external stylesheet rule regardless.
-//
-// This app has no iframes of its own, so it's safe to be blunt: force out
-// *any* iframe that looks like Google's (exact class names have shifted
-// across widget versions, hence the src-based fallback too), and force the
-// page's vertical offset back to 0 — both a MutationObserver (reacts
-// immediately to the actual DOM change) and a standing interval (catches
-// anything the observer's specific watch list misses, since Google's script
-// isn't necessarily triggering the exact mutation types we're listening for).
-function suppressGoogleTranslateBanner() {
-  function enforce() {
-    document
-      .querySelectorAll('iframe.goog-te-banner-frame, iframe[src*="translate.google"]')
-      .forEach((el) => {
-        el.style.setProperty("display", "none", "important");
-        el.style.setProperty("visibility", "hidden", "important");
-        el.style.setProperty("height", "0", "important");
-      });
-    for (const el of [document.body, document.documentElement]) {
-      el.style.setProperty("top", "0px", "important");
-    }
-  }
-  enforce();
-  const observer = new MutationObserver(enforce);
-  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["style"] });
-  observer.observe(document.body, { attributes: true, attributeFilter: ["style"], childList: true });
-  observer.observe(document.documentElement, { childList: true });
-  setInterval(enforce, 500);
-}
-
 export default function Navbar() {
   const loggedIn = !!getToken();
   const navigate = useNavigate();
@@ -65,7 +30,6 @@ export default function Navbar() {
 
   useEffect(() => {
     loadGoogleTranslate();
-    suppressGoogleTranslateBanner();
   }, []);
 
   useEffect(() => {
@@ -87,11 +51,7 @@ export default function Navbar() {
 
   return (
     <div className="navbar">
-      {/* notranslate + translate="no": Google Translate rewrites text nodes
-          in place, which mangled the brand name into gibberish when it tried
-          to translate "COOKify" split across this element and the nested
-          <span> — a brand name shouldn't be translated at all anyway. */}
-      <Link to="/" className="logo notranslate" translate="no">
+      <Link to="/" className="logo">
         COOK<span>ify</span>
         <svg
           width="28"
@@ -108,26 +68,16 @@ export default function Navbar() {
         </svg>
       </Link>
       <nav>
-        <NavLink to="/browse" className={({ isActive }) => (isActive ? "active" : "")}>
-          Explore
-        </NavLink>
+        <Link to="/browse">Explore</Link>
+        {loggedIn && <Link to="/upload">Upload Recipe</Link>}
         {loggedIn && (
-          <NavLink to="/upload" className={({ isActive }) => `upload-cta ${isActive ? "active" : ""}`}>
-            Upload Recipe
-          </NavLink>
-        )}
-        {loggedIn && (
-          <NavLink to="/messages" className={({ isActive }) => `messages-link ${isActive ? "active" : ""}`}>
+          <Link to="/messages" className="messages-link">
             Messages
             {unreadCount > 0 && <span className="unread-badge">{unreadCount > 9 ? "9+" : unreadCount}</span>}
-          </NavLink>
+          </Link>
         )}
-        {loggedIn && (
-          <NavLink to={`/profile/${getMyUserId()}`} className={({ isActive }) => (isActive ? "active" : "")}>
-            Profile
-          </NavLink>
-        )}
-        <div id="google_translate_element" className="lang-select"></div>
+        {loggedIn && <Link to={`/profile/${getMyUserId()}`}>Profile</Link>}
+        <div id="google_translate_element"></div>
         {loggedIn ? (
           <button type="button" className="logout" onClick={logout}>
             Logout
