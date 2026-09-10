@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, defer
 
 from app.database import get_db
 from app.deps import get_current_user, get_current_user_optional
-from app.models import Recipe, SavedRecipe, Subscription, User
+from app.models import Rating, Recipe, SavedRecipe, Subscription, User
 from app.models.recipe import DIETARY_TAGS
 from app.services.media import read_validated_media
 
@@ -16,11 +16,19 @@ router = APIRouter(prefix="/api/recipes", tags=["recipes"])
 
 
 def _serialize(
-    r: Recipe, *, is_saved: bool = False, is_subscribed_to_creator: bool = False
+    r: Recipe,
+    *,
+    is_saved: bool = False,
+    is_subscribed_to_creator: bool = False,
+    my_rating: Optional[int] = None,
 ) -> dict:
     return {
         "is_saved": is_saved,
         "is_subscribed_to_creator": is_subscribed_to_creator,
+        # None means "hasn't rated yet" — distinct from an actual score, so
+        # the frontend can tell "no rating" apart from "rated it a 0" (which
+        # can't happen, scores are 1-5, but the distinction matters in general).
+        "my_rating": my_rating,
         "id": r.id,
         "title": r.title,
         "ingredients": r.ingredients,
@@ -217,9 +225,19 @@ def get_recipe(
         )
         .first()
     )
+    existing_rating = (
+        db.query(Rating)
+        .filter(Rating.recipe_id == recipe_id, Rating.user_id == viewer.id)
+        .first()
+        if viewer
+        else None
+    )
     # UML: Recipe.showRecipe() — registers the view, then returns it.
     return _serialize(
-        recipe.showRecipe(db), is_saved=is_saved, is_subscribed_to_creator=is_subscribed
+        recipe.showRecipe(db),
+        is_saved=is_saved,
+        is_subscribed_to_creator=is_subscribed,
+        my_rating=existing_rating.score if existing_rating else None,
     )
 
 

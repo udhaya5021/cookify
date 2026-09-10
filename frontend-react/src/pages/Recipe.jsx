@@ -17,7 +17,14 @@ export default function Recipe() {
   const [commentAlert, setCommentAlert] = useState(null);
   const [ratingMsg, setRatingMsg] = useState(null);
   const [shareOpen, setShareOpen] = useState(false);
+  const [hoverScore, setHoverScore] = useState(0);
   const starsRef = useRef(null);
+
+  function scoreFromEvent(e) {
+    const rect = starsRef.current.getBoundingClientRect();
+    const pct = (e.clientX - rect.left) / rect.width;
+    return Math.max(1, Math.min(5, Math.ceil(pct * 5)));
+  }
   const [confirmModal, confirm] = useConfirm();
   const [toast, showToast] = useToast();
 
@@ -66,13 +73,16 @@ export default function Recipe() {
 
   async function handleRate(e) {
     if (!requireAuthOrAlert()) return;
-    const rect = starsRef.current.getBoundingClientRect();
-    const pct = (e.clientX - rect.left) / rect.width;
-    const score = Math.max(1, Math.min(5, Math.ceil(pct * 5)));
+    const score = scoreFromEvent(e);
     try {
       const res = await api(`/api/recipes/${id}/ratings`, { method: "POST", auth: true, body: { score } });
-      setRatingMsg({ type: "success", text: `Rated ${score}/5 — new average: ${res.average_rating}` });
-      loadRecipe();
+      setRatingMsg({
+        type: "success",
+        text: recipe.my_rating
+          ? `Updated your rating to ${score}/5 — new average: ${res.average_rating}`
+          : `Rated ${score}/5 — new average: ${res.average_rating}`,
+      });
+      loadRecipe(); // refetches my_rating too, so the widget reflects the saved value, not just the hover preview
     } catch (err) {
       setRatingMsg({ type: "error", text: err.message });
     }
@@ -229,12 +239,28 @@ export default function Recipe() {
         <div className="recipe-detail">
           <h3>Rate this recipe</h3>
           <p className="meta" style={{ marginBottom: 10 }}>
-            Current average: {recipe.average_rating || 0}/5 ({recipe.rating_count}{" "}
-            {recipe.rating_count === 1 ? "rating" : "ratings"}) — click below to add yours.
+            {recipe.my_rating
+              ? `You rated this ${recipe.my_rating}/5 — click to change it.`
+              : "You haven't rated this yet — click a star to rate it."}{" "}
+            Average: {recipe.average_rating || 0}/5 ({recipe.rating_count}{" "}
+            {recipe.rating_count === 1 ? "rating" : "ratings"}).
           </p>
-          <div className="stars" ref={starsRef} onClick={handleRate}>
-            {"★".repeat(Math.round(recipe.average_rating || 0))}
-            {"☆".repeat(5 - Math.round(recipe.average_rating || 0))}
+          {/* Hovering previews the score a click would submit; off-hover it
+              falls back to your own existing rating (so re-opening the page
+              shows what you gave it, not a stranger's average), and only
+              the recipe's overall average if you've never rated it. One
+              score per user either way — the backend updates your existing
+              row rather than adding another, this just makes that visible
+              instead of implying repeated clicks pile up separate ratings. */}
+          <div
+            className="stars"
+            ref={starsRef}
+            onClick={handleRate}
+            onMouseMove={(e) => setHoverScore(scoreFromEvent(e))}
+            onMouseLeave={() => setHoverScore(0)}
+          >
+            {"★".repeat(hoverScore || recipe.my_rating || Math.round(recipe.average_rating || 0))}
+            {"☆".repeat(5 - (hoverScore || recipe.my_rating || Math.round(recipe.average_rating || 0)))}
           </div>
           {ratingMsg && <div className={`alert ${ratingMsg.type}`}>{ratingMsg.text}</div>}
         </div>
