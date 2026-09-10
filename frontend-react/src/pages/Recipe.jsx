@@ -157,6 +157,8 @@ export default function Recipe() {
                 className="thumb"
                 emptyClassName="thumb-placeholder"
                 style={{ height: 240, borderRadius: 12 }}
+                isVideo={recipe.media_content_type?.startsWith("video/")}
+                controls
               />
 
               <dl className="recipe-facts">

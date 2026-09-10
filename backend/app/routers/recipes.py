@@ -27,6 +27,10 @@ def _serialize(
         "utensils": r.utensils,
         "steps": r.steps,
         "media_url": r.media_url,
+        # The frontend needs this to know whether to render <video> or <img> —
+        # media_url alone (an opaque /api/recipes/{id}/media path) carries no
+        # file-type hint the way a real file extension would have.
+        "media_content_type": r.media_content_type,
         "cost": r.cost,
         "cooking_time_minutes": r.cooking_time_minutes,
         "calories": r.calories,

@@ -364,6 +364,7 @@ export default function Profile() {
                     label={r.title}
                     className="thumb"
                     emptyClassName="thumb-placeholder"
+                    isVideo={r.media_content_type?.startsWith("video/")}
                   />
                   {recipeTab === "uploaded" && (
                     <span className={`badge ${r.recipe_type === "veg" ? "veg" : "nonveg"}`}>

@@ -239,6 +239,7 @@ export default function Browse() {
                     label={r.title}
                     className="thumb"
                     emptyClassName="thumb-placeholder"
+                    isVideo={r.media_content_type?.startsWith("video/")}
                   />
                   <span className={`badge ${r.recipe_type === "veg" ? "veg" : "nonveg"}`}>
                     {r.recipe_type === "veg" ? "Veg" : "Non-Veg"}

@@ -33,6 +33,7 @@ export default function Upload() {
   const [media, setMedia] = useState(null);
   const [mediaPreview, setMediaPreview] = useState(null);
   const [existingMediaUrl, setExistingMediaUrl] = useState(null);
+  const [existingMediaContentType, setExistingMediaContentType] = useState("");
   const [dragActive, setDragActive] = useState(false);
   const [alert, setAlert] = useState("");
   const fileInputRef = useRef(null);
@@ -40,15 +41,15 @@ export default function Upload() {
   function pickMedia(file) {
     if (!file) return;
     setMedia(file);
-    setExistingMediaUrl(null); // a freshly picked file replaces whatever was there before
+    // A freshly picked file replaces whatever was there before.
+    setExistingMediaUrl(null);
+    setExistingMediaContentType("");
     if (file.type.startsWith("image/")) {
       setMediaPreview(URL.createObjectURL(file));
     } else {
       setMediaPreview(null); // video — show filename only, no thumbnail
     }
   }
-
-  const _IMAGE_EXT = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
 
   useEffect(() => {
     if (!editId) return;
@@ -66,7 +67,10 @@ export default function Upload() {
       setRegion(r.region);
       setSpeed(r.speed);
       setDifficulty(r.difficulty);
-      if (r.media_url) setExistingMediaUrl(r.media_url);
+      if (r.media_url) {
+        setExistingMediaUrl(r.media_url);
+        setExistingMediaContentType(r.media_content_type || "");
+      }
     });
   }, [editId]);
 
@@ -214,10 +218,7 @@ export default function Upload() {
               border: `2px dashed ${dragActive ? "var(--accent)" : "var(--border)"}`,
               borderRadius: 14,
               background: dragActive ? "#fdf1e2" : "#f6efe1",
-              padding:
-                mediaPreview || (existingMediaUrl && _IMAGE_EXT.some((ext) => existingMediaUrl.endsWith(ext)))
-                  ? 0
-                  : 28,
+              padding: mediaPreview || existingMediaUrl ? 0 : 28,
               textAlign: "center",
               cursor: "pointer",
               marginBottom: 14,
@@ -232,16 +233,18 @@ export default function Upload() {
               />
             ) : media ? (
               <div style={{ color: "var(--text-muted)" }}>{media.name} selected</div>
-            ) : existingMediaUrl && _IMAGE_EXT.some((ext) => existingMediaUrl.endsWith(ext)) ? (
+            ) : existingMediaUrl && existingMediaContentType.startsWith("video/") ? (
+              <video
+                src={`${API_BASE}${existingMediaUrl}`}
+                controls
+                style={{ width: "100%", maxHeight: 220, display: "block" }}
+              />
+            ) : existingMediaUrl ? (
               <img
                 src={`${API_BASE}${existingMediaUrl}`}
                 alt="Current"
                 style={{ width: "100%", maxHeight: 220, objectFit: "cover", display: "block" }}
               />
-            ) : existingMediaUrl ? (
-              <div style={{ color: "var(--text-muted)" }}>
-                Current video attached — click or drop to replace
-              </div>
             ) : (
               <div style={{ color: "var(--text-muted)" }}>
                 Drag and drop an image or video, or click to choose a file
