@@ -228,8 +228,13 @@ export default function Recipe() {
 
         <div className="recipe-detail">
           <h3>Rate this recipe</h3>
+          <p className="meta" style={{ marginBottom: 10 }}>
+            Current average: {recipe.average_rating || 0}/5 ({recipe.rating_count}{" "}
+            {recipe.rating_count === 1 ? "rating" : "ratings"}) — click below to add yours.
+          </p>
           <div className="stars" ref={starsRef} onClick={handleRate}>
-            ★★★★★
+            {"★".repeat(Math.round(recipe.average_rating || 0))}
+            {"☆".repeat(5 - Math.round(recipe.average_rating || 0))}
           </div>
           {ratingMsg && <div className={`alert ${ratingMsg.type}`}>{ratingMsg.text}</div>}
         </div>
