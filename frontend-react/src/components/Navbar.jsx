@@ -23,6 +23,30 @@ function loadGoogleTranslate() {
   document.body.appendChild(script);
 }
 
+// On switching language, Google's own script (not just its initial markup)
+// injects a full-width banner iframe and pushes <body> down by setting an
+// inline style — and it re-applies both after the page has already loaded,
+// which is why a CSS `!important` override alone doesn't stick: an inline
+// style set later by JS wins over any external stylesheet rule regardless.
+// This watches for exactly those two mutations and undoes them the moment
+// Google's script makes them.
+function suppressGoogleTranslateBanner() {
+  function enforce() {
+    const banner = document.querySelector("iframe.goog-te-banner-frame");
+    if (banner && banner.style.display !== "none") {
+      banner.style.display = "none";
+    }
+    if (document.body.style.top && document.body.style.top !== "0px") {
+      document.body.style.top = "0px";
+    }
+  }
+  enforce();
+  const observer = new MutationObserver(enforce);
+  observer.observe(document.body, { attributes: true, attributeFilter: ["style"] });
+  observer.observe(document.documentElement, { childList: true });
+  observer.observe(document.body, { childList: true });
+}
+
 export default function Navbar() {
   const loggedIn = !!getToken();
   const navigate = useNavigate();
@@ -30,6 +54,7 @@ export default function Navbar() {
 
   useEffect(() => {
     loadGoogleTranslate();
+    suppressGoogleTranslateBanner();
   }, []);
 
   useEffect(() => {
@@ -51,7 +76,11 @@ export default function Navbar() {
 
   return (
     <div className="navbar">
-      <Link to="/" className="logo">
+      {/* notranslate + translate="no": Google Translate rewrites text nodes
+          in place, which mangled the brand name into gibberish when it tried
+          to translate "COOKify" split across this element and the nested
+          <span> — a brand name shouldn't be translated at all anyway. */}
+      <Link to="/" className="logo notranslate" translate="no">
         COOK<span>ify</span>
         <svg
           width="28"
