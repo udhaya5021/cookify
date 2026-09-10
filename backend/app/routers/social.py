@@ -102,20 +102,15 @@ def rate_recipe(
     if not recipe:
         raise HTTPException(404, "Recipe not found")
 
-    existing = db.query(Rating).filter(Rating.recipe_id == recipe_id, Rating.user_id == user.id).first()
-    if existing:
-        existing.score = body.score  # one rating per user per recipe, updateable
-    else:
-        db.add(Rating(recipe_id=recipe_id, user_id=user.id, score=body.score))
-    db.commit()
-    db.refresh(recipe)
+    # UML: User.rateRecipe() — one rating per user per recipe, updateable.
+    average = user.rateRecipe(db, recipe, body.score)
 
     # Rating Method pseudocode: "NOTIFY Recipe Owner via Email"
     owner = recipe.creator
     if owner and owner.id != user.id:
         send_new_rating_notification(owner.email, user.username, recipe.title, body.score)
 
-    return {"message": "Rating submitted", "average_rating": recipe.average_rating}
+    return {"message": "Rating submitted", "average_rating": average}
 
 
 # ── Saved recipes ────────────────────────────────────────────────────────

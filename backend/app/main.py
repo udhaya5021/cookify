@@ -66,9 +66,14 @@ _FRONTEND_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "
 if os.path.isdir(_FRONTEND_DIR):
     app.mount("/assets", StaticFiles(directory=os.path.join(_FRONTEND_DIR, "assets")), name="frontend-assets")
 
+    _INDEX_HTML = os.path.join(_FRONTEND_DIR, "index.html")
+
     @app.get("/{full_path:path}")
     def serve_frontend(full_path: str, request: Request):
         candidate = os.path.normpath(os.path.join(_FRONTEND_DIR, full_path))
-        if candidate.startswith(_FRONTEND_DIR) and os.path.isfile(candidate):
+        if candidate.startswith(_FRONTEND_DIR) and os.path.isfile(candidate) and candidate != _INDEX_HTML:
             return FileResponse(candidate)
-        return FileResponse(os.path.join(_FRONTEND_DIR, "index.html"))
+        # index.html names the content-hashed JS/CSS bundles, so it has to be
+        # revalidated on every load. Cached, it keeps pointing a browser at a
+        # previous build's assets and new deploys silently never arrive.
+        return FileResponse(_INDEX_HTML, headers={"Cache-Control": "no-cache, must-revalidate"})

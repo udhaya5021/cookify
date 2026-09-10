@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
-import Navbar from "../components/Navbar";
-import Footer from "../components/Footer";
+import Layout from "../components/Layout";
 import StarRating from "../components/StarRating";
 import { api, API_BASE } from "../api";
 
@@ -41,70 +40,109 @@ export default function Browse() {
   useEffect(() => { loadRecipes(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <>
-      <Navbar />
+    <Layout>
       <div className="container">
         <div className="search-panel">
-          <h1 style={{ textAlign: "center", marginBottom: 16 }}>Explore Recipes</h1>
+          <h1 style={{ textAlign: "center", marginBottom: 18 }}>Explore Recipes</h1>
           <div className="search-row">
             <input type="text" placeholder="Search recipe title..." value={q} onChange={(e) => setQ(e.target.value)} />
             <button className="btn" onClick={loadRecipes}>Search</button>
           </div>
-          <div className="filters">
-            <label>Ingredient <input type="text" placeholder="e.g. chicken" style={{ width: 120 }} value={ingredient} onChange={(e) => setIngredient(e.target.value)} /></label>
-            <label>Utensil <input type="text" placeholder="e.g. oven" style={{ width: 120 }} value={utensil} onChange={(e) => setUtensil(e.target.value)} /></label>
-            <label>Max cost (₹) <input type="number" value={cost} onChange={(e) => setCost(e.target.value)} /></label>
-            <label>Max time (min) <input type="number" value={time} onChange={(e) => setTime(e.target.value)} /></label>
-            <label>Max calories <input type="number" value={calories} onChange={(e) => setCalories(e.target.value)} /></label>
-            <label><input type="checkbox" style={{ width: "auto" }} checked={vegOnly} onChange={(e) => setVegOnly(e.target.checked)} /> Veg only</label>
-            <label>Dietary
-              <select style={{ width: 130, margin: 0 }} value={dietary} onChange={(e) => setDietary(e.target.value)}>
-                <option value="">Any</option>
-                <option value="vegetarian">Vegetarian</option>
-                <option value="eggetarian">Eggetarian</option>
-                <option value="pescetarian">Pescetarian</option>
-                <option value="jain">Jain</option>
-                <option value="non_vegetarian">Non-Vegetarian</option>
-              </select>
+
+          <div className="filter-section">
+            <span className="filter-label">Ingredients &amp; equipment</span>
+            <div className="filter-grid">
+              <label className="filter-field"><span className="f-label">Ingredient</span>
+                <input type="text" placeholder="e.g. chicken" value={ingredient} onChange={(e) => setIngredient(e.target.value)} />
+              </label>
+              <label className="filter-field"><span className="f-label">Utensil</span>
+                <input type="text" placeholder="e.g. oven" value={utensil} onChange={(e) => setUtensil(e.target.value)} />
+              </label>
+              <label className="filter-field"><span className="f-label">Food type</span>
+                <input type="text" placeholder="e.g. dessert" value={foodType} onChange={(e) => setFoodType(e.target.value)} />
+              </label>
+              <label className="filter-field"><span className="f-label">Cuisine</span>
+                <input type="text" placeholder="e.g. pan-Asian" value={region} onChange={(e) => setRegion(e.target.value)} />
+              </label>
+            </div>
+          </div>
+
+          <div className="filter-section">
+            <span className="filter-label">Budget &amp; nutrition</span>
+            <div className="filter-grid">
+              <label className="filter-field"><span className="f-label">Max cost (₹)</span>
+                <input type="number" value={cost} onChange={(e) => setCost(e.target.value)} />
+              </label>
+              <label className="filter-field"><span className="f-label">Max time (min)</span>
+                <input type="number" value={time} onChange={(e) => setTime(e.target.value)} />
+              </label>
+              <label className="filter-field"><span className="f-label">Max calories</span>
+                <input type="number" value={calories} onChange={(e) => setCalories(e.target.value)} />
+              </label>
+              <label className="filter-field"><span className="f-label">Dietary preference</span>
+                <select value={dietary} onChange={(e) => setDietary(e.target.value)}>
+                  <option value="">Any</option>
+                  <option value="vegetarian">Vegetarian</option>
+                  <option value="eggetarian">Eggetarian</option>
+                  <option value="pescetarian">Pescetarian</option>
+                  <option value="jain">Jain</option>
+                  <option value="non_vegetarian">Non-Vegetarian</option>
+                </select>
+              </label>
+            </div>
+            <label className={`chip-toggle ${vegOnly ? "active" : ""}`} style={{ marginTop: 14 }}>
+              <input type="checkbox" checked={vegOnly} onChange={(e) => setVegOnly(e.target.checked)} />
+              🌱 Veg only
             </label>
-            <label>Food type <input type="text" placeholder="e.g. dessert" style={{ width: 110 }} value={foodType} onChange={(e) => setFoodType(e.target.value)} /></label>
-            <label>Cuisine <input type="text" placeholder="e.g. pan-Asian" style={{ width: 110 }} value={region} onChange={(e) => setRegion(e.target.value)} /></label>
-            <label>Min speed ({minSpeed})
-              <input type="range" min="0" max="5" step="0.5" style={{ width: 90 }} value={minSpeed} onChange={(e) => setMinSpeed(e.target.value)} />
-            </label>
-            <label>Min difficulty ({minDifficulty})
-              <input type="range" min="0" max="5" step="0.5" style={{ width: 90 }} value={minDifficulty} onChange={(e) => setMinDifficulty(e.target.value)} />
-            </label>
-            <label>Min rating ({minRating})
-              <input type="range" min="0" max="5" step="0.5" style={{ width: 90 }} value={minRating} onChange={(e) => setMinRating(e.target.value)} />
-            </label>
-            <label>Sort by
-              <select style={{ width: 130, margin: 0 }} value={sort} onChange={(e) => setSort(e.target.value)}>
-                <option value="popularity">Popularity</option>
-                <option value="rating">Top rated</option>
-                <option value="newest">Newest</option>
-              </select>
-            </label>
+          </div>
+
+          <div className="filter-section">
+            <span className="filter-label">Skill &amp; sorting</span>
+            <div className="filter-grid">
+              <label className="filter-field"><span className="f-label">Min speed ({minSpeed})</span>
+                <input type="range" min="0" max="5" step="0.5" value={minSpeed} onChange={(e) => setMinSpeed(e.target.value)} />
+              </label>
+              <label className="filter-field"><span className="f-label">Min difficulty ({minDifficulty})</span>
+                <input type="range" min="0" max="5" step="0.5" value={minDifficulty} onChange={(e) => setMinDifficulty(e.target.value)} />
+              </label>
+              <label className="filter-field"><span className="f-label">Min rating ({minRating})</span>
+                <input type="range" min="0" max="5" step="0.5" value={minRating} onChange={(e) => setMinRating(e.target.value)} />
+              </label>
+              <label className="filter-field"><span className="f-label">Sort by</span>
+                <select value={sort} onChange={(e) => setSort(e.target.value)}>
+                  <option value="popularity">Popularity</option>
+                  <option value="rating">Top rated</option>
+                  <option value="newest">Newest</option>
+                </select>
+              </label>
+            </div>
           </div>
         </div>
 
         <div className="recipe-grid">
-          {recipes === null ? null : recipes.length === 0 ? (
+          {recipes === null ? (
+            <div className="loading-state" style={{ gridColumn: "1 / -1" }}><span className="spinner"></span> Loading recipes…</div>
+          ) : recipes.length === 0 ? (
             <div className="empty-state">No recipes match your search.</div>
           ) : recipes.map((r) => (
             <div key={r.id} className={`recipe-card ${r.recipe_type === "veg" ? "veg" : ""}`}>
-              {r.media_url && <img className="thumb" src={`${API_BASE}${r.media_url}`} alt="" />}
-              <span className={`badge ${r.recipe_type === "veg" ? "veg" : "nonveg"}`}>{r.recipe_type === "veg" ? "Veg" : "Non-Veg"}</span>
-              <div className="title">{r.title}</div>
-              <div className="meta">By {r.creator_username || "Unknown"}{r.food_type ? " · " + r.food_type : ""}{r.region ? " · " + r.region : ""}</div>
-              <div className="meta">Speed {r.speed}/5 · Difficulty {r.difficulty}/5</div>
-              <StarRating average={r.average_rating} count={r.rating_count} />
-              <Link className="btn small" to={`/recipe/${r.id}`}>Open recipe</Link>
+              <div className="media-wrap">
+                {r.media_url
+                  ? <img className="thumb" src={`${API_BASE}${r.media_url}`} alt="" />
+                  : <div className="thumb thumb-placeholder">{r.title.charAt(0).toUpperCase()}</div>}
+                <span className={`badge ${r.recipe_type === "veg" ? "veg" : "nonveg"}`}>{r.recipe_type === "veg" ? "Veg" : "Non-Veg"}</span>
+              </div>
+              <div className="card-body">
+                <div className="title">{r.title}</div>
+                <div className="meta">By {r.creator_username || "Unknown"}{r.food_type ? " · " + r.food_type : ""}{r.region ? " · " + r.region : ""}</div>
+                <div className="meta">Speed {r.speed}/5 · Difficulty {r.difficulty}/5</div>
+                <StarRating average={r.average_rating} count={r.rating_count} />
+                <Link className="btn small" to={`/recipe/${r.id}`}>Open recipe</Link>
+              </div>
             </div>
           ))}
         </div>
       </div>
-      <Footer />
-    </>
+    </Layout>
   );
 }

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import Navbar from "../components/Navbar";
-import Footer from "../components/Footer";
+import Layout from "../components/Layout";
 import { api, setToken } from "../api";
 
 export default function Signup() {
@@ -33,8 +32,7 @@ export default function Signup() {
   }
 
   return (
-    <>
-      <Navbar />
+    <Layout>
       <div className="form-card">
         <h1>Sign Up</h1>
         {alert && <div className="alert error">{alert}</div>}
@@ -48,7 +46,6 @@ export default function Signup() {
         </form>
         <p className="form-note">Already have an account? <Link to="/login">Login</Link></p>
       </div>
-      <Footer />
-    </>
+    </Layout>
   );
 }

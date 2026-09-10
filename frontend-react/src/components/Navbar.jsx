@@ -42,6 +42,7 @@ export default function Navbar() {
       <nav>
         <Link to="/browse">Explore</Link>
         {loggedIn && <Link to="/upload">Upload Recipe</Link>}
+        {loggedIn && <Link to="/messages">Messages</Link>}
         {loggedIn && <Link to={`/profile/${getMyUserId()}`}>Profile</Link>}
         <div id="google_translate_element"></div>
         {loggedIn

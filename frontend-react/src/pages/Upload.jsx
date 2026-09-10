@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import Navbar from "../components/Navbar";
-import Footer from "../components/Footer";
+import Layout from "../components/Layout";
 import StarPicker from "../components/StarPicker";
 import { api, API_BASE } from "../api";
 
@@ -89,8 +88,7 @@ export default function Upload() {
   }
 
   return (
-    <>
-      <Navbar />
+    <Layout>
       <div className="form-card" style={{ maxWidth: 520 }}>
         <h1>{editId ? "Edit Recipe" : "Upload Recipe"}</h1>
         {alert && <div className="alert error">{alert}</div>}
@@ -161,7 +159,6 @@ export default function Upload() {
           </button>
         </form>
       </div>
-      <Footer />
-    </>
+    </Layout>
   );
 }

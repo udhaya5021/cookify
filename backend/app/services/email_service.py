@@ -15,25 +15,45 @@ SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 SMTP_FROM = os.getenv("SMTP_FROM", SMTP_USER)
 
 
-def send_email(to: str, subject: str, body: str) -> None:
+def send_email(to: str, subject: str, body: str, *, critical: bool = False) -> bool:
+    """Sends one email. Returns whether it went out.
+
+    Notification mail is sent inline in the request that triggered it, so an
+    SMTP failure (provider down, daily quota hit, recipient rejected) would
+    otherwise turn a perfectly good comment/rating/subscribe into a 500. Those
+    are best-effort: log and carry on. `critical=True` (the 2FA OTP) re-raises
+    instead, because silently swallowing that would leave the user waiting on
+    a code that is never coming.
+    """
     if not SMTP_HOST or not SMTP_USER:
         # Dev-mode fallback — no SMTP configured, just log it.
         print(f"[email:dev-mode] to={to} subject={subject!r}\n{body}\n")
-        return
+        return True
 
     msg = MIMEText(body)
     msg["Subject"] = subject
     msg["From"] = SMTP_FROM
     msg["To"] = to
 
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-        server.starttls()
-        server.login(SMTP_USER, SMTP_PASSWORD)
-        server.send_message(msg)
+    try:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
+            server.starttls()
+            server.login(SMTP_USER, SMTP_PASSWORD)
+            server.send_message(msg)
+        return True
+    except Exception as err:
+        print(f"[email:failed] to={to} subject={subject!r} error={err}")
+        if critical:
+            raise
+        return False
 
 
 def send_otp_email(to: str, otp: str) -> None:
-    send_email(to, "Your Cookify login code", f"Your 6-digit login code is: {otp}\nIt expires in 10 minutes.")
+    send_email(
+        to, "Your Cookify login code",
+        f"Your 6-digit login code is: {otp}\nIt expires in 10 minutes.",
+        critical=True,
+    )
 
 
 def send_new_recipe_notification(to: str, creator_username: str, recipe_title: str) -> None:

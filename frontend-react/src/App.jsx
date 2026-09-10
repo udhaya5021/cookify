@@ -8,6 +8,7 @@ import Recipe from "./pages/Recipe";
 import Upload from "./pages/Upload";
 import Profile from "./pages/Profile";
 import Chat from "./pages/Chat";
+import Messages from "./pages/Messages";
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
         <Route path="/recipe/:id" element={<Recipe />} />
         <Route path="/upload" element={<Upload />} />
         <Route path="/profile/:id" element={<Profile />} />
+        <Route path="/messages" element={<Messages />} />
         <Route path="/chat/:userId" element={<Chat />} />
       </Routes>
     </BrowserRouter>

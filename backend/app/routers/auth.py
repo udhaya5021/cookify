@@ -1,15 +1,14 @@
 """Signup / login / 2FA / forgot-password — matches the assignment's
 Sign Up Method and Login Method pseudocode almost line for line."""
-import re
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import User, UserPreference, RememberedDevice
+from app.models import User, RememberedDevice
 from app.services.security import (
-    hash_password, verify_password, is_password_valid,
+    hash_password, is_password_valid,
     create_access_token, generate_otp, generate_device_token,
 )
 from app.services.email_service import send_otp_email
@@ -42,30 +41,15 @@ class VerifyOtpRequest(BaseModel):
     remember_device: bool = False
 
 
-def _valid_email(email: str) -> bool:
-    return bool(re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email))
-
-
 @router.post("/signup")
 def signup(body: SignupRequest, db: Session = Depends(get_db)):
-    if db.query(User).filter(User.username == body.username).first():
-        raise HTTPException(400, "This username is taken, try again")
-    if db.query(User).filter(User.email == body.email).first():
-        raise HTTPException(400, "An account with this email already exists")
-    if not _valid_email(body.email):
-        raise HTTPException(400, "Invalid email format")
-    if not is_password_valid(body.password):
-        raise HTTPException(400, "Password must be at least 9 characters, no spaces or restricted symbols")
-
-    user = User(
-        email=body.email, username=body.username, phone_number=body.phone_number,
-        password_hash=hash_password(body.password),
-    )
-    db.add(user)
-    db.flush()
-    db.add(UserPreference(user_id=user.id))
-    db.commit()
-    db.refresh(user)
+    try:
+        user = User.register(
+            db, email=body.email, username=body.username,
+            password=body.password, phone_number=body.phone_number,
+        )
+    except ValueError as err:
+        raise HTTPException(400, str(err))
 
     token = create_access_token(user.id)
     return {"message": "Account created successfully", "access_token": token, "user_id": user.id}
@@ -73,18 +57,8 @@ def signup(body: SignupRequest, db: Session = Depends(get_db)):
 
 @router.post("/login")
 def login(body: LoginRequest, db: Session = Depends(get_db)):
-    # Login wireframe: "Username / Email / Phone Number" — all three are
-    # valid identifiers.
-    user = (
-        db.query(User)
-        .filter(
-            (User.username == body.identifier)
-            | (User.email == body.identifier)
-            | (User.phone_number == body.identifier)
-        )
-        .first()
-    )
-    if not user or not verify_password(body.password, user.password_hash):
+    user = User.login(db, body.identifier, body.password)
+    if not user:
         raise HTTPException(401, "Error: Incorrect username or password")
 
     if user.is_banned:
@@ -131,13 +105,13 @@ def verify_otp(body: VerifyOtpRequest, db: Session = Depends(get_db)):
 
 
 class ForgotPasswordRequest(BaseModel):
-    email: str
+    identifier: str  # username, email, or phone number — matches the Login page's wireframe field
     new_password: str
 
 
 @router.post("/forgot-password")
 def forgot_password(body: ForgotPasswordRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == body.email).first()
+    user = User.find_by_identifier(db, body.identifier)
     if not user:
         raise HTTPException(404, "Error: User not found")
     if not is_password_valid(body.new_password):

@@ -9,19 +9,14 @@ from sqlalchemy import or_
 
 from app.database import get_db
 from app.deps import get_current_user
-from app.models import User, Recipe, VegRecipe, NonVegRecipe
+from app.models import User, Recipe
+from app.models.recipe import DIETARY_TAGS
 
 router = APIRouter(prefix="/api/recipes", tags=["recipes"])
 
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "..", "static", "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 _ALLOWED_MEDIA_EXT = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".mp4", ".webm"}
-
-# Test case 5 asks for a dropdown beyond a plain veg/non-veg boolean. This
-# also drives which polymorphic subclass gets created (see upload_recipe),
-# so the OOP split and the dietary dropdown stay consistent with each other.
-DIETARY_TAGS = ["vegetarian", "eggetarian", "pescetarian", "jain", "non_vegetarian"]
-_VEG_TAGS = {"vegetarian", "eggetarian", "jain"}  # map to VegRecipe; rest -> NonVegRecipe
 
 
 def _serialize(r: Recipe) -> dict:
@@ -86,18 +81,15 @@ async def upload_recipe(
             shutil.copyfileobj(media.file, f)
         media_url = f"/static/uploads/{filename}"
 
-    # Polymorphism in action: the subclass is chosen at creation time, and
-    # each instance carries its own matches_filters() override from here on.
-    RecipeClass = VegRecipe if dietary_tag in _VEG_TAGS else NonVegRecipe
-    recipe = RecipeClass(
+    # UML: User.uploadRecipe() — the model picks the Veg/NonVeg subclass, so
+    # polymorphism is decided in the domain layer rather than in the route.
+    recipe = user.uploadRecipe(
+        db,
         title=title, ingredients=ingredients, utensils=utensils, steps=steps,
         media_url=media_url, cost=cost, cooking_time_minutes=cooking_time_minutes,
         calories=calories, protein=protein, speed=speed, difficulty=difficulty,
-        dietary_tag=dietary_tag, food_type=food_type, region=region, creator_id=user.id,
+        dietary_tag=dietary_tag, food_type=food_type, region=region,
     )
-    db.add(recipe)
-    db.commit()
-    db.refresh(recipe)
 
     # Notify subscribers — fire-and-forget style; see social.py for the actual
     # subscription-triggered email, kept there to avoid circular imports.
@@ -125,45 +117,14 @@ def search_recipes(
     sort: str = "popularity",  # "popularity" | "newest" | "rating"
     db: Session = Depends(get_db),
 ):
-    query = db.query(Recipe)
-
-    if q:
-        query = query.filter(Recipe.title.ilike(f"%{q}%"))
-    if ingredient:
-        query = query.filter(Recipe.ingredients.ilike(f"%{ingredient}%"))
-    if utensil:
-        query = query.filter(Recipe.utensils.ilike(f"%{utensil}%"))
-    if veg_only:
-        query = query.filter(Recipe.recipe_type == "veg")
-
-    results = query.all()
-
-    # Polymorphic filter pass — each recipe (veg or nonveg) applies its own
-    # matches_filters() override for the numeric constraints.
-    filtered = [
-        r for r in results
-        if r.matches_filters(
-            max_cost=max_cost, max_time=max_time, max_calories=max_calories,
-            min_speed=min_speed, min_difficulty=min_difficulty,
-            dietary_tag=dietary_tag, food_type=food_type, region=region,
-            veg_only=veg_only,
-        )
-    ]
-
-    # average_rating is computed from the ratings relationship, not a plain
-    # column, so it's filtered here rather than inside matches_filters().
-    if min_rating is not None:
-        filtered = [r for r in filtered if r.average_rating >= min_rating]
-
-    if sort == "popularity":
-        # Test case 6: "Highest rated/most viewed recipes appear first" —
-        # sort by views, then break ties by most recent upload.
-        filtered.sort(key=lambda r: (r.view_count, r.created_at), reverse=True)
-    elif sort == "rating":
-        filtered.sort(key=lambda r: r.average_rating, reverse=True)
-    else:
-        filtered.sort(key=lambda r: r.created_at, reverse=True)
-
+    # UML: Recipe.searchRecipe() — the query, the polymorphic filter pass and
+    # the ordering all live on the class.
+    filtered = Recipe.searchRecipe(
+        db, q=q, ingredient=ingredient, utensil=utensil, veg_only=veg_only,
+        max_cost=max_cost, max_time=max_time, max_calories=max_calories,
+        min_speed=min_speed, min_difficulty=min_difficulty, min_rating=min_rating,
+        dietary_tag=dietary_tag, food_type=food_type, region=region, sort=sort,
+    )
     return {"count": len(filtered), "recipes": [_serialize(r) for r in filtered]}
 
 
@@ -172,9 +133,8 @@ def get_recipe(recipe_id: int, db: Session = Depends(get_db)):
     recipe = db.query(Recipe).get(recipe_id)
     if not recipe:
         raise HTTPException(404, "Recipe not found")
-    recipe.view_count += 1
-    db.commit()
-    return _serialize(recipe)
+    # UML: Recipe.showRecipe() — registers the view, then returns it.
+    return _serialize(recipe.showRecipe(db))
 
 
 @router.put("/{recipe_id}")
@@ -233,6 +193,21 @@ async def edit_recipe(
     recipe.dietary_tag = dietary_tag
     recipe.food_type = food_type
     recipe.region = region
+
+    # The dietary tag decides the polymorphic subclass, so switching e.g.
+    # vegetarian -> non_vegetarian has to move the discriminator too, or the
+    # recipe keeps its old Veg badge and still matches veg-only searches.
+    new_type = Recipe.subclass_for(dietary_tag).__mapper_args__["polymorphic_identity"]
+    type_changed = recipe.recipe_type != new_type
+    recipe.recipe_type = new_type
+
     db.commit()
-    db.refresh(recipe)
+    if type_changed:
+        # The loaded object is still an instance of the old subclass, which
+        # SQLAlchemy can't refresh against the new discriminator — drop it and
+        # re-read so it comes back as the right class.
+        db.expunge(recipe)
+        recipe = db.query(Recipe).get(recipe_id)
+    else:
+        db.refresh(recipe)
     return {"message": "Recipe updated successfully", "recipe": _serialize(recipe)}

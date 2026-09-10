@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useParams } from "react-router-dom";
-import Navbar from "../components/Navbar";
-import Footer from "../components/Footer";
+import Layout from "../components/Layout";
+import PageLoading from "../components/PageLoading";
 import { api, API_BASE, requireAuthOrAlert, getMyUserId } from "../authGuard";
 
 export default function Recipe() {
@@ -82,13 +82,12 @@ export default function Recipe() {
     }
   }
 
-  if (!recipe) return (<><Navbar /><div className="container">Loading…</div><Footer /></>);
+  if (!recipe) return <PageLoading />;
 
   const isOwner = recipe.creator_id === getMyUserId();
 
   return (
-    <>
-      <Navbar />
+    <Layout>
       <div className="container">
         <div className="recipe-detail">
           <span className={`badge ${recipe.recipe_type === "veg" ? "veg" : "nonveg"}`}>{recipe.dietary_tag.replace("_", " ")}</span>
@@ -99,14 +98,37 @@ export default function Recipe() {
             {" · "}{recipe.view_count} views · {recipe.rating_count} ratings | Avg {recipe.average_rating}
             {recipe.food_type ? " · " + recipe.food_type : ""}{recipe.region ? " · " + recipe.region : ""}
           </div>
-          <div className="meta">Speed: {recipe.speed}/5 · Difficulty: {recipe.difficulty}/5</div>
-          {recipe.media_url && <img className="thumb" style={{ height: 280, marginTop: 12 }} src={`${API_BASE}${recipe.media_url}`} alt="" />}
-          <p style={{ marginTop: 14 }}><strong>Ingredients:</strong> {recipe.ingredients}</p>
-          <p><strong>Utensils:</strong> {recipe.utensils || "—"}</p>
-          <p><strong>Cost:</strong> ₹{recipe.cost} · <strong>Time:</strong> {recipe.cooking_time_minutes} min · <strong>Calories:</strong> {recipe.calories} · <strong>Protein:</strong> {recipe.protein}g</p>
-          <h3 style={{ marginTop: 16 }}>Steps</h3>
-          <div className="steps">{recipe.steps}</div>
-          <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+
+          {/* Wireframe: media on the left, steps on the right — also keeps the
+              instructions at a readable line length instead of one very wide
+              column of text. */}
+          <div className="recipe-layout">
+            <div className="recipe-aside">
+              {recipe.media_url
+                ? <img className="thumb" style={{ height: 240 }} src={`${API_BASE}${recipe.media_url}`} alt="" />
+                : <div className="thumb thumb-placeholder" style={{ height: 240, borderRadius: 12 }}>{recipe.title.charAt(0).toUpperCase()}</div>}
+
+              <dl className="recipe-facts">
+                <div><dt>Cost</dt><dd>₹{recipe.cost}</dd></div>
+                <div><dt>Time</dt><dd>{recipe.cooking_time_minutes} min</dd></div>
+                <div><dt>Calories</dt><dd>{recipe.calories}</dd></div>
+                <div><dt>Protein</dt><dd>{recipe.protein}g</dd></div>
+                <div><dt>Speed</dt><dd>{recipe.speed}/5</dd></div>
+                <div><dt>Difficulty</dt><dd>{recipe.difficulty}/5</dd></div>
+              </dl>
+            </div>
+
+            <div className="recipe-main">
+              <h3>Ingredients</h3>
+              <p>{recipe.ingredients}</p>
+              <h3>Utensils</h3>
+              <p>{recipe.utensils || "—"}</p>
+              <h3>Steps</h3>
+              <div className="steps">{recipe.steps}</div>
+            </div>
+          </div>
+
+          <div className="recipe-actions">
             {!isOwner && <button className="btn secondary small" onClick={handleSubscribe}>Subscribe to {recipe.creator_username}</button>}
             <button className="btn secondary small" onClick={handleSave}>{saveLabel}</button>
             <button className="btn secondary small" onClick={handleShare}>Share Recipe</button>
@@ -137,7 +159,6 @@ export default function Recipe() {
             ))}
         </div>
       </div>
-      <Footer />
-    </>
+    </Layout>
   );
 }

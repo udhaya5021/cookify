@@ -1,14 +1,12 @@
 import { Link } from "react-router-dom";
-import Navbar from "../components/Navbar";
-import Footer from "../components/Footer";
+import Layout from "../components/Layout";
 import { getToken } from "../api";
 
 export default function Home() {
   const loggedIn = !!getToken();
 
   return (
-    <>
-      <Navbar />
+    <Layout>
       <div className="form-card" style={{ textAlign: "center" }}>
         <h1>Welcome to Cookify</h1>
         <p style={{ color: "var(--text-muted)", marginBottom: 24 }}>
@@ -23,7 +21,6 @@ export default function Home() {
           </>
         )}
       </div>
-      <Footer />
-    </>
+    </Layout>
   );
 }

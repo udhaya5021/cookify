@@ -1,33 +1,74 @@
-/* Cookify — shared styles. Colour scheme matches the provided wireframes:
-   cream background, orange/brown accents. */
+/* Cookify — shared styles. Warm, food-forward palette (cream/orange/brown)
+   paired with a display serif for headings so it reads as a considered
+   brand rather than a generic admin-panel look. */
 
 :root {
   --bg: #faf3e7;
   --card-bg: #ffffff;
-  --accent: #f0a04b;
-  --accent-dark: #d97b3f;
-  --footer: #b5652f;
-  --text: #2e2620;
-  --text-muted: #7a7166;
+  --accent: #e8912f;
+  --accent-dark: #c46f24;
+  --accent-light: #fdf1e2;
+  --footer: #7a3e1d;
+  --text: #241d17;
+  --text-muted: #83766a;
   --border: #e8ddc9;
   --danger: #c0392b;
   --success: #3f9142;
-  --radius: 14px;
+  --radius: 16px;
+
+  /* Lato throughout — hierarchy comes from weight (900/700/400) rather than
+     from mixing typefaces. */
+  --font-display: "Lato", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-body: "Lato", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* Elevation + motion tokens — used consistently across cards, buttons,
+     and inputs instead of one-off shadow values per component. */
+  --shadow-sm: 0 1px 2px rgba(36, 29, 23, 0.07);
+  --shadow-md: 0 6px 20px rgba(36, 29, 23, 0.10);
+  --shadow-lg: 0 20px 48px rgba(36, 29, 23, 0.16);
+  --focus-ring: 0 0 0 3px rgba(232, 145, 47, 0.35);
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+html { scroll-behavior: smooth; }
+
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-body);
   background: var(--bg);
   color: var(--text);
-  line-height: 1.5;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
 }
 
 a { color: inherit; text-decoration: none; }
 
+/* Full-height column so short pages (login, signup, empty profile) push the
+   footer to the bottom rather than leaving a band of dead background. */
+#root { display: flex; flex-direction: column; min-height: 100vh; }
+.page-content { flex: 1; }
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+h1 { font-weight: 900; }
+
+/* Consistent, visible keyboard-focus ring on every interactive element,
+   without relying on the browser's inconsistent default outline. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
 .container {
-  max-width: 1100px;
+  max-width: 1120px;
   margin: 0 auto;
   padding: 0 24px;
 }
@@ -37,19 +78,46 @@ a { color: inherit; text-decoration: none; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 24px;
-  background: #fff;
+  padding: 16px 32px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 20;
 }
 .navbar .logo {
-  font-size: 22px;
-  font-weight: 800;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 900;
+  display: inline-flex;
+  align-items: center;
+  transition: opacity 0.15s var(--ease);
 }
+.navbar .logo:hover { opacity: 0.85; }
 .navbar .logo span { color: var(--accent); }
-.navbar nav { display: flex; gap: 24px; align-items: center; }
-.navbar nav a { font-weight: 600; color: var(--accent-dark); }
+.navbar nav { display: flex; gap: 28px; align-items: center; }
+.navbar nav a {
+  font-weight: 600;
+  font-size: 14.5px;
+  color: var(--accent-dark);
+  position: relative;
+  padding: 4px 0;
+  transition: color 0.15s var(--ease);
+}
+.navbar nav a::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 100%; bottom: -2px;
+  height: 2px;
+  background: var(--accent-dark);
+  transition: right 0.2s var(--ease);
+}
+.navbar nav a:hover::after { right: 0; }
 .navbar nav a.muted { color: var(--text); }
 .navbar nav a.logout { color: var(--danger); }
+.navbar nav a.logout::after { background: var(--danger); }
 
 /* ── Responsive ─────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
@@ -68,7 +136,7 @@ a { color: inherit; text-decoration: none; }
   .form-card { margin: 24px 16px; max-width: none; padding: 22px; }
   .search-row { flex-direction: column; align-items: stretch; }
   .search-row .btn { width: 100%; }
-  .filters label { flex: 1 1 100%; justify-content: space-between; }
+  .filter-grid { grid-template-columns: 1fr; }
   footer { flex-direction: column; gap: 16px; }
 }
 
@@ -78,17 +146,21 @@ a { color: inherit; text-decoration: none; }
   padding: 12px 28px;
   border-radius: 999px;
   border: none;
-  background: var(--accent);
+  background: linear-gradient(180deg, #f0a04b, var(--accent) 60%);
   color: #fff;
   font-weight: 700;
   cursor: pointer;
   font-size: 15px;
-  transition: background 0.15s;
+  box-shadow: var(--shadow-sm);
+  transition: filter 0.15s var(--ease), box-shadow 0.15s var(--ease), transform 0.1s var(--ease);
 }
-.btn:hover { background: var(--accent-dark); }
-.btn.secondary { background: #fff; color: var(--accent-dark); border: 2px solid var(--accent); }
+.btn:hover { filter: brightness(0.94); box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.btn:active { transform: translateY(0); box-shadow: var(--shadow-sm); }
+.btn.secondary { background: #fff; color: var(--accent-dark); border: 1.5px solid var(--border); box-shadow: none; }
+.btn.secondary:hover { background: var(--accent-light); border-color: var(--accent); filter: none; box-shadow: none; }
 .btn.danger { background: var(--danger); }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn.danger:hover { background: #a5311f; filter: none; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
 .btn.small { padding: 8px 18px; font-size: 13px; }
 
 /* ── Forms ──────────────────────────────────────────────────────────── */
@@ -96,95 +168,376 @@ a { color: inherit; text-decoration: none; }
   max-width: 420px;
   margin: 60px auto;
   background: #fff;
-  border-radius: var(--radius);
-  padding: 32px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+  border-radius: 20px;
+  padding: 36px;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border);
 }
-.form-card h1 { text-align: center; margin-bottom: 24px; font-size: 24px; }
+.form-card h1 { text-align: center; margin-bottom: 26px; font-size: 28px; }
 input, textarea, select {
   width: 100%;
   padding: 12px 16px;
   border-radius: 999px;
-  border: 1px solid var(--border);
-  background: #f6efe1;
+  border: 1.5px solid var(--border);
+  background: #f8f2e6;
   margin-bottom: 14px;
   font-size: 14px;
+  font-family: inherit;
   color: var(--text);
+  transition: border-color 0.15s var(--ease), background 0.15s var(--ease);
 }
-textarea { border-radius: 14px; resize: vertical; }
+input:hover, textarea:hover, select:hover { border-color: #d8c8a8; }
+input:focus, textarea:focus, select:focus { background: #fff; border-color: var(--accent); }
+input::placeholder, textarea::placeholder { color: var(--text-muted); }
+textarea { border-radius: 16px; resize: vertical; }
 .field-error { color: var(--danger); font-size: 13px; margin: -8px 0 12px 8px; }
 .form-note { text-align: center; font-size: 13px; color: var(--text-muted); margin-top: 12px; }
+.form-note a { color: var(--accent-dark); font-weight: 700; }
+.form-note a:hover { text-decoration: underline; }
 
-/* ── Cards / grid ───────────────────────────────────────────────────── */
+/* ── Search / filter panel ─────────────────────────────────────────── */
 .search-panel {
   background: #fff;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 24px;
-  margin: 24px 0;
+  border-radius: 20px;
+  padding: 28px;
+  margin: 28px 0;
+  box-shadow: var(--shadow-sm);
 }
+.search-panel h1 { font-size: 32px; }
 .search-row { display: flex; gap: 12px; align-items: center; }
 .search-row input[type=text] { margin-bottom: 0; }
+
+.filter-section {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+.filter-section .filter-label {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+.filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+.filter-field { display: flex; flex-direction: column; gap: 6px; }
+.filter-field span.f-label { font-size: 12.5px; color: var(--text-muted); font-weight: 600; }
+.filter-field input, .filter-field select { margin-bottom: 0; }
+
+.chip-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #f8f2e6;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  padding: 9px 16px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s var(--ease), border-color 0.15s var(--ease), color 0.15s var(--ease);
+}
+.chip-toggle input { display: none; }
+.chip-toggle.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* Deprecated flat filter row, kept only for any page not yet migrated to
+   .filter-grid — same visual family so nothing looks orphaned. */
 .filters { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
-.filters label { font-size: 13px; display: flex; align-items: center; gap: 6px; background: #f6efe1; padding: 8px 14px; border-radius: 999px; }
+.filters label { font-size: 13px; display: flex; align-items: center; gap: 6px; background: #f8f2e6; padding: 8px 14px; border-radius: 999px; }
 .filters input[type=number] { width: 90px; margin: 0; padding: 6px 10px; }
 
+/* ── Recipe cards / grid ────────────────────────────────────────────── */
 .recipe-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 20px;
-  margin: 24px 0;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 22px;
+  margin: 28px 0;
 }
 .recipe-card {
-  background: #fce9df;
-  border-radius: var(--radius);
-  padding: 16px;
+  background: #fdf0e7;
+  border-radius: 20px;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
 }
-.recipe-card.veg { background: #e2f0dc; }
+.recipe-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+.recipe-card.veg { background: #eaf3e4; }
 /* Wireframe callout: "Inverted Yellow Brown Colour Scheme" — Saved Recipes
    get the brown/cream relationship flipped versus Uploaded Recipes. */
 .recipe-card.saved { background: var(--footer); color: #fff; }
-.recipe-card.saved .meta, .recipe-card.saved .rating { color: #f0e0d0; }
-.recipe-card img.thumb {
-  width: 100%; height: 140px; object-fit: cover; border-radius: 10px; margin-bottom: 6px; background: #ddd;
+.recipe-card.saved .meta, .recipe-card.saved .rating { color: #f0ddd0; }
+
+img.thumb {
+  width: 100%; height: 160px; object-fit: cover; display: block;
+  background: #e5d9c8; border-radius: 12px;
 }
-.badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; color: #fff; }
+.recipe-card .media-wrap { position: relative; overflow: hidden; }
+.recipe-card img.thumb {
+  height: 160px; border-radius: 0;
+  transition: transform 0.35s var(--ease);
+}
+.recipe-card:hover img.thumb { transform: scale(1.04); }
+.recipe-detail img.thumb { margin-top: 12px; }
+.recipe-card .badge {
+  position: absolute; top: 12px; left: 12px;
+}
+
+/* Most recipes have no photo yet — rather than leave a thin, bare card,
+   fill the media slot with the title's initial so every card has the same
+   silhouette in the grid. */
+.thumb-placeholder {
+  height: 160px;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 48px;
+  font-weight: 900;
+  color: rgba(255, 255, 255, 0.92);
+  background: linear-gradient(135deg, #f0a04b, #c46f24);
+  transition: transform 0.35s var(--ease);
+}
+.recipe-card.veg .thumb-placeholder { background: linear-gradient(135deg, #85b96b, #3f9142); }
+.recipe-card.saved .thumb-placeholder { background: linear-gradient(135deg, #a35a2c, #5c2f16); }
+.recipe-card:hover .thumb-placeholder { transform: scale(1.04); }
+.badge { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 11px; font-weight: 700; color: #fff; letter-spacing: 0.02em; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
 .badge.veg { background: var(--success); }
 .badge.nonveg { background: var(--danger); }
-.recipe-card .title { font-weight: 700; font-size: 16px; }
-.recipe-card .meta { font-size: 12px; color: var(--text-muted); }
-.recipe-card .rating { font-size: 13px; }
+
+.recipe-card .card-body { padding: 16px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.recipe-card .title { font-family: var(--font-display); font-weight: 700; font-size: 18px; line-height: 1.25; }
+.recipe-card .meta { font-size: 12.5px; color: var(--text-muted); }
+.recipe-card .rating { font-size: 13px; margin-top: 2px; }
+.recipe-card .card-body .btn { margin-top: auto; text-align: center; }
 
 /* ── Recipe detail ──────────────────────────────────────────────────── */
-.recipe-detail { background: #fff; border-radius: var(--radius); padding: 28px; margin: 24px 0; }
-.recipe-detail .steps { white-space: pre-wrap; margin: 16px 0; }
-.stars { color: #d9a441; font-size: 20px; letter-spacing: 2px; cursor: pointer; }
+.recipe-detail {
+  background: #fff;
+  border-radius: 20px;
+  padding: 30px;
+  margin: 24px 0;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border);
+}
+.recipe-detail h1 { font-size: 30px; margin-top: 8px; }
+.recipe-detail .steps { white-space: pre-wrap; }
+
+/* Recipe detail: media + facts on the left, instructions on the right. */
+.recipe-layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 32px;
+  margin-top: 22px;
+  align-items: start;
+}
+.recipe-aside { position: sticky; top: 96px; }
+.recipe-main h3 {
+  font-size: 13px; font-family: var(--font-body); font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.recipe-main h3:not(:first-child) { margin-top: 22px; }
+.recipe-main p { max-width: 66ch; }
+
+.recipe-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  margin-top: 16px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.recipe-facts > div { background: #fff; padding: 10px 12px; }
+.recipe-facts dt {
+  font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--text-muted); font-weight: 700;
+}
+.recipe-facts dd { font-size: 15px; font-weight: 600; margin-top: 1px; }
+
+.recipe-actions { display: flex; gap: 10px; margin-top: 24px; flex-wrap: wrap; }
+
+@media (max-width: 780px) {
+  .recipe-layout { grid-template-columns: 1fr; gap: 22px; }
+  .recipe-aside { position: static; }
+}
+.stars { color: #d9a441; font-size: 20px; letter-spacing: 2px; cursor: pointer; transition: transform 0.1s var(--ease); }
+.stars:hover { transform: scale(1.04); }
 .comment { border-top: 1px solid var(--border); padding: 12px 0; }
 .comment .user { font-weight: 700; font-size: 13px; }
 
 /* ── Footer ─────────────────────────────────────────────────────────── */
 footer {
-  background: var(--footer);
+  background: linear-gradient(160deg, var(--footer), #5c2f16);
   color: #fff;
-  padding: 24px;
-  margin-top: 48px;
+  padding: 32px 24px;
+  margin-top: 56px;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   flex-wrap: wrap;
   gap: 12px;
 }
-footer h3 { margin-bottom: 6px; }
+footer h3 { font-family: var(--font-display); margin-bottom: 6px; font-size: 18px; }
 footer a { text-decoration: underline; font-weight: 600; }
+footer a:hover { opacity: 0.85; }
 
-.alert { padding: 10px 16px; border-radius: 8px; margin-bottom: 14px; font-size: 14px; }
+.alert { padding: 10px 16px; border-radius: 10px; margin-bottom: 14px; font-size: 14px; animation: alert-in 0.2s var(--ease); }
 .alert.error { background: #fbe1de; color: var(--danger); }
 .alert.success { background: #e2f0dc; color: var(--success); }
+@keyframes alert-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
-.empty-state { text-align: center; color: var(--text-muted); padding: 40px; }
+.empty-state {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 48px 20px;
+  background: #fff;
+  border-radius: var(--radius);
+  border: 1px dashed var(--border);
+}
+/* Inside a grid an empty state would otherwise occupy a single narrow
+   column instead of standing in for the whole missing row. */
+.recipe-grid .empty-state { grid-column: 1 / -1; }
+
+/* ── Profile page ───────────────────────────────────────────────────── */
+.profile-header { display: flex; gap: 28px; align-items: flex-start; }
+.profile-avatar {
+  width: 120px; height: 120px; border-radius: 50%; object-fit: cover;
+  flex-shrink: 0; border: 3px solid #fff; box-shadow: var(--shadow-md);
+}
+.profile-avatar-empty {
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #f0a04b, #c46f24);
+  color: #fff; font-family: var(--font-display); font-size: 46px; font-weight: 900;
+}
+.profile-info { flex: 1; min-width: 0; }
+.profile-info h1 { font-size: 34px; line-height: 1.15; }
+.profile-realname { color: var(--text-muted); font-size: 15px; margin-top: 2px; }
+.profile-stats { display: flex; gap: 24px; flex-wrap: wrap; margin: 16px 0 14px; }
+.profile-stats span { font-size: 14px; color: var(--text-muted); }
+.profile-stats strong { color: var(--text); font-weight: 700; font-size: 16px; margin-right: 4px; }
+.profile-bio { max-width: 62ch; margin-bottom: 18px; }
+
+/* Follower / following counts are buttons that reveal the actual names —
+   a bare number with no way to see who is behind it isn't much use. */
+.stat-btn {
+  background: none; border: none; padding: 0; cursor: pointer;
+  font: inherit; font-size: 14px; color: var(--text-muted);
+  border-bottom: 1px dashed transparent;
+}
+.stat-btn:hover { color: var(--accent-dark); border-bottom-color: var(--accent); }
+.stat-btn strong { color: var(--text); font-weight: 700; font-size: 16px; margin-right: 4px; }
+
+.connection-list { display: flex; flex-wrap: wrap; gap: 8px; margin: -6px 0 16px; }
+.connection {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: #f8f2e6; border: 1px solid var(--border); border-radius: 999px;
+  padding: 5px 14px 5px 5px; font-size: 13.5px; font-weight: 700;
+  transition: background 0.15s var(--ease), border-color 0.15s var(--ease);
+}
+.connection:hover { background: var(--accent-light); border-color: var(--accent); }
+.connection-avatar { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; }
+.connection-avatar-empty {
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent); color: #fff; font-size: 12px; font-weight: 900;
+}
+
+/* ── Chat typing indicator ──────────────────────────────────────────── */
+.typing-row { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+.typing-bubble {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: #eee; padding: 10px 14px; border-radius: 14px;
+}
+.typing-bubble i {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--text-muted);
+  animation: typing-dot 1.2s infinite ease-in-out;
+}
+.typing-bubble i:nth-child(2) { animation-delay: 0.15s; }
+.typing-bubble i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes typing-dot {
+  0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .typing-bubble i { animation: none; opacity: 0.6; }
+}
+
+/* ── Messages inbox ─────────────────────────────────────────────────── */
+.conversation-list {
+  background: #fff; border: 1px solid var(--border);
+  border-radius: 16px; overflow: hidden; box-shadow: var(--shadow-sm);
+}
+.conversation {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+  transition: background 0.15s var(--ease);
+}
+.conversation:last-child { border-bottom: none; }
+.conversation:hover { background: var(--accent-light); }
+.conversation-avatar { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+.conversation-avatar-empty {
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #f0a04b, #c46f24);
+  color: #fff; font-weight: 900; font-size: 18px;
+}
+.conversation-text { flex: 1; min-width: 0; }
+.conversation-name { font-weight: 700; }
+.conversation-preview {
+  font-size: 13.5px; color: var(--text-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.profile-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* Editing is a deliberate action, so the form is scoped to a readable
+   column width rather than stretching the full page. */
+.edit-form { max-width: 540px; }
+.edit-form .field-row { display: flex; gap: 10px; }
+.edit-form .pfp-row { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+.edit-form .pfp-preview {
+  width: 64px; height: 64px; border-radius: 50%; object-fit: cover;
+  border: 2px solid var(--border);
+}
+
+@media (max-width: 640px) {
+  .profile-header { flex-direction: column; gap: 18px; }
+  .profile-avatar { width: 96px; height: 96px; }
+  .profile-info h1 { font-size: 28px; }
+  .edit-form .field-row { flex-direction: column; gap: 0; }
+}
+
+/* ── Loading state ──────────────────────────────────────────────────── */
+.loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 60px 20px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+.spinner {
+  width: 18px; height: 18px;
+  border: 2.5px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* Multi-language selector — pairs with the Google Translate widget in app.js */
 #google_translate_element { margin-left: 12px; }

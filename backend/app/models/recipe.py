@@ -9,6 +9,12 @@ from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Foreig
 from sqlalchemy.orm import relationship
 from app.database import Base
 
+# Test case 5 asks for a dropdown beyond a plain veg/non-veg boolean, and the
+# tag is also what decides which polymorphic subclass gets built — so the list
+# and the veg mapping live next to the classes they select, not in a router.
+DIETARY_TAGS = ["vegetarian", "eggetarian", "pescetarian", "jain", "non_vegetarian"]
+_VEG_TAGS = {"vegetarian", "eggetarian", "jain"}
+
 
 class Recipe(Base):
     __tablename__ = "recipes"
@@ -80,6 +86,66 @@ class Recipe(Base):
         if region and self.region.lower() != region.lower():
             return False
         return True
+
+    # ── UML class diagram: Recipe.searchRecipe() / Recipe.showRecipe() ──
+    # The diagram puts both on the Recipe class rather than in a controller,
+    # so they live here and the router just calls them.
+
+    @classmethod
+    def subclass_for(cls, dietary_tag: str):
+        """Which polymorphic subclass a dietary tag maps to."""
+        return VegRecipe if dietary_tag in _VEG_TAGS else NonVegRecipe
+
+    @classmethod
+    def searchRecipe(
+        cls, db, *, q="", ingredient="", utensil="", veg_only=False,
+        max_cost=None, max_time=None, max_calories=None,
+        min_speed=None, min_difficulty=None, min_rating=None,
+        dietary_tag="", food_type="", region="", sort="popularity",
+    ) -> list["Recipe"]:
+        """Recipe Search Method pseudocode: query, then apply filters and
+        preferences, then order the matches."""
+        query = db.query(cls)
+        if q:
+            query = query.filter(cls.title.ilike(f"%{q}%"))
+        if ingredient:
+            query = query.filter(cls.ingredients.ilike(f"%{ingredient}%"))
+        if utensil:
+            query = query.filter(cls.utensils.ilike(f"%{utensil}%"))
+        if veg_only:
+            query = query.filter(cls.recipe_type == "veg")
+
+        # Polymorphic pass — each instance applies its own matches_filters().
+        matches = [
+            r for r in query.all()
+            if r.matches_filters(
+                max_cost=max_cost, max_time=max_time, max_calories=max_calories,
+                min_speed=min_speed, min_difficulty=min_difficulty,
+                dietary_tag=dietary_tag, food_type=food_type, region=region,
+                veg_only=veg_only,
+            )
+        ]
+
+        # average_rating is computed from the ratings relationship, not a
+        # column, so it can't be filtered inside matches_filters().
+        if min_rating is not None:
+            matches = [r for r in matches if r.average_rating >= min_rating]
+
+        if sort == "popularity":
+            # Test case 6: "based on views and date of upload".
+            matches.sort(key=lambda r: (r.view_count, r.created_at), reverse=True)
+        elif sort == "rating":
+            matches.sort(key=lambda r: r.average_rating, reverse=True)
+        else:
+            matches.sort(key=lambda r: r.created_at, reverse=True)
+        return matches
+
+    def showRecipe(self, db) -> "Recipe":
+        """Registers the view (this is what drives popularity) and returns
+        the recipe for display."""
+        self.view_count += 1
+        db.commit()
+        return self
 
 
 class VegRecipe(Recipe):

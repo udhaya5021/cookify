@@ -39,6 +39,34 @@ def _profile(db: Session, user: User) -> dict:
     }
 
 
+def _summaries(db: Session, ids: list[int]) -> list[dict]:
+    if not ids:
+        return []
+    return [
+        {
+            "id": u.id, "username": u.username,
+            "first_name": u.first_name, "last_name": u.last_name,
+            "profile_picture_url": u.profile_picture_url,
+        }
+        for u in db.query(User).filter(User.id.in_(ids)).all()
+    ]
+
+
+@router.get("/{user_id}/followers")
+def list_followers(user_id: int, db: Session = Depends(get_db)):
+    """Who subscribes to this user — the profile showed a count with no way
+    to see the names behind it."""
+    subs = db.query(Subscription).filter(Subscription.creator_id == user_id).all()
+    return _summaries(db, [s.subscriber_id for s in subs])
+
+
+@router.get("/{user_id}/following")
+def list_following(user_id: int, db: Session = Depends(get_db)):
+    """Who this user subscribes to."""
+    subs = db.query(Subscription).filter(Subscription.subscriber_id == user_id).all()
+    return _summaries(db, [s.creator_id for s in subs])
+
+
 @router.get("/{user_id}")
 def get_profile(user_id: int, db: Session = Depends(get_db)):
     user = db.query(User).get(user_id)
@@ -47,12 +75,20 @@ def get_profile(user_id: int, db: Session = Depends(get_db)):
     return _profile(db, user)
 
 
+@router.get("/me/settings")
+def my_settings(user: User = Depends(get_current_user)):
+    """Account settings only the owner should see — whether 2FA is on is not
+    something to advertise on a public profile."""
+    return {"two_fa_enabled": user.two_fa_enabled}
+
+
 @router.put("/me")
 async def update_profile(
     bio: str = Form(""),
     first_name: str = Form(""),
     last_name: str = Form(""),
     age: int | None = Form(None),
+    two_fa_enabled: bool | None = Form(None),
     profile_picture: UploadFile | None = File(None),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -61,6 +97,10 @@ async def update_profile(
     user.first_name = first_name
     user.last_name = last_name
     user.age = age
+    # Only applied when the caller actually sends it, so a form that doesn't
+    # include the field can't silently switch someone's 2FA off.
+    if two_fa_enabled is not None:
+        user.two_fa_enabled = two_fa_enabled
 
     if profile_picture is not None:
         ext = os.path.splitext(profile_picture.filename or "")[1].lower()

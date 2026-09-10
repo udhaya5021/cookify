@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import Navbar from "../components/Navbar";
-import Footer from "../components/Footer";
+import Layout from "../components/Layout";
 import { api, setToken, setDeviceToken, getDeviceToken } from "../api";
 
 export default function Login() {
@@ -53,8 +52,7 @@ export default function Login() {
   }
 
   return (
-    <>
-      <Navbar />
+    <Layout>
       <div className="form-card">
         <h1>Login</h1>
         {alert && <div className="alert error">{alert}</div>}
@@ -83,7 +81,6 @@ export default function Login() {
         <p className="form-note"><Link to="/forgot-password">Forgot password?</Link></p>
         <p className="form-note">Don't have an account? <Link to="/signup">Sign up</Link></p>
       </div>
-      <Footer />
-    </>
+    </Layout>
   );
 }
