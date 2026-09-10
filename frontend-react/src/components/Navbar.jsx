@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { api, getToken, clearToken, getMyUserId } from "../api";
 
@@ -68,16 +68,26 @@ export default function Navbar() {
         </svg>
       </Link>
       <nav>
-        <Link to="/browse">Explore</Link>
-        {loggedIn && <Link to="/upload">Upload Recipe</Link>}
+        <NavLink to="/browse" className={({ isActive }) => (isActive ? "active" : "")}>
+          Explore
+        </NavLink>
         {loggedIn && (
-          <Link to="/messages" className="messages-link">
+          <NavLink to="/upload" className={({ isActive }) => `upload-cta ${isActive ? "active" : ""}`}>
+            Upload Recipe
+          </NavLink>
+        )}
+        {loggedIn && (
+          <NavLink to="/messages" className={({ isActive }) => `messages-link ${isActive ? "active" : ""}`}>
             Messages
             {unreadCount > 0 && <span className="unread-badge">{unreadCount > 9 ? "9+" : unreadCount}</span>}
-          </Link>
+          </NavLink>
         )}
-        {loggedIn && <Link to={`/profile/${getMyUserId()}`}>Profile</Link>}
-        <div id="google_translate_element"></div>
+        {loggedIn && (
+          <NavLink to={`/profile/${getMyUserId()}`} className={({ isActive }) => (isActive ? "active" : "")}>
+            Profile
+          </NavLink>
+        )}
+        <div id="google_translate_element" className="lang-select"></div>
         {loggedIn ? (
           <button type="button" className="logout" onClick={logout}>
             Logout

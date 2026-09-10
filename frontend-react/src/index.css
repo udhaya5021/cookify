@@ -152,7 +152,8 @@ select:focus-visible {
   transition: right 0.2s var(--ease);
 }
 .navbar nav a:hover::after,
-.navbar nav .logout:hover::after {
+.navbar nav .logout:hover::after,
+.navbar nav a.active:not(.upload-cta)::after {
   right: 0;
 }
 .navbar nav a.muted {
@@ -162,6 +163,27 @@ select:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+/* Upload is the one primary action in the nav — a pill button gives it
+   real visual weight instead of blending in as one more text link. */
+.navbar nav a.upload-cta {
+  background: linear-gradient(180deg, #f0a04b, var(--accent) 60%);
+  color: #fff;
+  padding: 8px 18px;
+  border-radius: 999px;
+  box-shadow: var(--shadow-sm);
+  transition:
+    filter 0.15s var(--ease),
+    box-shadow 0.15s var(--ease);
+}
+.navbar nav a.upload-cta::after {
+  display: none;
+}
+.navbar nav a.upload-cta:hover,
+.navbar nav a.upload-cta.active {
+  filter: brightness(0.94);
+  box-shadow: var(--shadow-md);
 }
 .unread-badge {
   display: inline-flex;
@@ -1483,9 +1505,61 @@ footer a:hover {
   }
 }
 
-/* Multi-language selector — pairs with the Google Translate widget in app.js */
-#google_translate_element {
-  margin-left: 12px;
+/* Multi-language selector — pairs with the Google Translate widget in
+   Navbar.jsx. Google injects this markup itself at runtime with its own
+   inline styling (a boxed button with a globe icon, its own font/colors),
+   which otherwise sits in the nav looking like a foreign browser widget
+   next to everything else here being custom-styled. Re-skinned with
+   !important since Google's own styles are applied inline and win any
+   normal-specificity override. */
+.lang-select {
+  margin-left: 4px;
+  display: flex;
+  align-items: center;
+}
+.lang-select .goog-te-gadget {
+  font-family: inherit !important;
+  font-size: 0 !important; /* collapses the "Powered by Google Translate" text node */
+}
+.lang-select .goog-te-gadget-simple {
+  background: #fdf1e2 !important;
+  border: 1.5px solid var(--border) !important;
+  border-radius: 999px !important;
+  padding: 7px 14px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  cursor: pointer;
+  transition:
+    background 0.15s var(--ease),
+    border-color 0.15s var(--ease);
+}
+.lang-select .goog-te-gadget-simple:hover {
+  background: var(--accent-light) !important;
+  border-color: var(--accent) !important;
+}
+.lang-select .goog-te-gadget-icon,
+.lang-select img {
+  display: none !important; /* Google's globe icon — one brand mark too many next to our own logo */
+}
+.lang-select .goog-te-menu-value,
+.lang-select .goog-te-menu-value span {
+  font-family: inherit !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: var(--accent-dark) !important;
+  border: none !important;
+}
+
+/* Selecting a language makes Google inject a full-width "This page has
+   been translated" banner iframe above everything and push the whole page
+   down via an inline style on <body> — jarring against a page that's
+   otherwise never had anything fixed at the very top. The in-nav selector
+   is enough on its own; suppress the banner. */
+.goog-te-banner-frame {
+  display: none !important;
+}
+body {
+  top: 0 !important;
 }
 
 /* ── TOTP (authenticator app) enrolment ─────────────────────────────── */
