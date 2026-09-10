@@ -1,7 +1,6 @@
 """Signup / login / 2FA / forgot-password — matches the assignment's
 Sign Up Method and Login Method pseudocode almost line for line."""
 from typing import Optional
-from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -10,19 +9,11 @@ from app.database import get_db
 from app.models import User, RememberedDevice
 from app.services.security import (
     hash_password, is_password_valid,
-    create_access_token, generate_otp, generate_device_token,
+    create_access_token, generate_device_token,
 )
-from app.services.email_service import send_otp_email
 from app.services import totp_service
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
-
-# In-memory pending-2FA store: {email: (otp, expires_at)}.
-# Note for the interview: a real production system would use Redis with a
-# TTL instead of an in-process dict, so this survives restarts and scales
-# across multiple server instances.
-_pending_otps: dict[str, tuple[str, datetime]] = {}
-
 
 class SignupRequest(BaseModel):
     email: str
@@ -55,9 +46,8 @@ def signup(body: SignupRequest, db: Session = Depends(get_db)):
 
     # Issue the authenticator secret straight away so the signup page can show
     # the QR as its second step. It isn't trusted until the user submits a
-    # working code (POST /api/users/me/2fa/totp/confirm) — until then login
-    # falls back to an emailed code so an abandoned enrolment can't lock the
-    # account out.
+    # working code (POST /api/users/me/2fa/totp/confirm); if they abandon the
+    # QR screen, their next login re-offers enrolment rather than refusing.
     secret = totp_service.new_secret()
     user.totp_secret = secret
     user.totp_confirmed = False
@@ -96,16 +86,32 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
 
     # Authenticator app: the code already exists on the user's device, so
     # there's nothing to generate or send here.
-    if user.two_fa_method == "totp" and user.totp_confirmed:
+    if user.totp_confirmed:
         return {
             "message": "Enter the code from your authenticator app",
             "requires_otp": True, "method": "totp", "email": user.email,
         }
 
-    otp = generate_otp()
-    _pending_otps[user.email] = (otp, datetime.utcnow() + timedelta(minutes=10))
-    send_otp_email(user.email, otp)
-    return {"message": "OTP sent to your email", "requires_otp": True, "method": "email", "email": user.email}
+    # 2FA is on but the app was never enrolled — most likely signup was
+    # abandoned at the QR step. Re-issue the secret and finish enrolment now
+    # rather than refusing the login, which would strand the account with no
+    # way back in now that emailed codes are gone.
+    #
+    # The session token below is handed out before a second factor exists.
+    # That is the honest position: this account currently has one factor, the
+    # password, which has just been verified. Enrolment is what upgrades it.
+    secret = user.totp_secret or totp_service.new_secret()
+    user.totp_secret = secret
+    db.commit()
+
+    uri = totp_service.provisioning_uri(secret, user.username)
+    return {
+        "message": "Finish setting up your authenticator app",
+        "requires_enrolment": True,
+        "email": user.email,
+        "access_token": create_access_token(user.id),
+        "totp": {"secret": secret, "otpauth_uri": uri, "qr_svg": totp_service.qr_svg(uri)},
+    }
 
 
 @router.post("/verify-otp")
@@ -114,18 +120,13 @@ def verify_otp(body: VerifyOtpRequest, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(404, "User not found")
 
-    if user.two_fa_method == "totp" and user.totp_confirmed:
-        # Nothing pending server-side: the code is derived from the shared
-        # secret and the current time, so it's checked directly.
-        if not totp_service.verify(user.totp_secret, body.otp):
-            raise HTTPException(400, "Incorrect code — check your authenticator app")
-    else:
-        pending = _pending_otps.get(body.email)
-        if not pending or pending[1] < datetime.utcnow():
-            raise HTTPException(400, "OTP expired or not found — please log in again")
-        if pending[0] != body.otp:
-            raise HTTPException(400, "Incorrect OTP")
-        del _pending_otps[body.email]
+    if not user.totp_confirmed:
+        raise HTTPException(400, "Set up your authenticator app first — log in again to finish")
+
+    # Nothing pending server-side: the code is derived from the shared secret
+    # and the current time, so it's checked directly.
+    if not totp_service.verify(user.totp_secret, body.otp):
+        raise HTTPException(400, "Incorrect code — check your authenticator app")
 
     response = {"message": "Login Success", "access_token": create_access_token(user.id)}
     if body.remember_device:

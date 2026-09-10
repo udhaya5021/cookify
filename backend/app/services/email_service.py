@@ -1,4 +1,7 @@
-"""Email sending — used for 2FA OTPs, subscription notifications, and ban warnings.
+"""Email sending — subscription notifications, comment/rating alerts, and ban warnings.
+
+Login codes are not sent by email: the second factor is an authenticator app
+(see services/totp_service.py), so nothing here is on the login path.
 
 Free/zero-config by default: if no SMTP credentials are set in the environment,
 emails are printed to the console instead of actually sent, so the app runs
@@ -15,15 +18,13 @@ SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 SMTP_FROM = os.getenv("SMTP_FROM", SMTP_USER)
 
 
-def send_email(to: str, subject: str, body: str, *, critical: bool = False) -> bool:
+def send_email(to: str, subject: str, body: str) -> bool:
     """Sends one email. Returns whether it went out.
 
     Notification mail is sent inline in the request that triggered it, so an
     SMTP failure (provider down, daily quota hit, recipient rejected) would
-    otherwise turn a perfectly good comment/rating/subscribe into a 500. Those
-    are best-effort: log and carry on. `critical=True` (the 2FA OTP) re-raises
-    instead, because silently swallowing that would leave the user waiting on
-    a code that is never coming.
+    otherwise turn a perfectly good comment/rating/subscribe into a 500. All
+    of these are notifications, so they are best-effort: log and carry on.
     """
     if not SMTP_HOST or not SMTP_USER:
         # Dev-mode fallback — no SMTP configured, just log it.
@@ -43,17 +44,7 @@ def send_email(to: str, subject: str, body: str, *, critical: bool = False) -> b
         return True
     except Exception as err:
         print(f"[email:failed] to={to} subject={subject!r} error={err}")
-        if critical:
-            raise
         return False
-
-
-def send_otp_email(to: str, otp: str) -> None:
-    send_email(
-        to, "Your Cookify login code",
-        f"Your 6-digit login code is: {otp}\nIt expires in 10 minutes.",
-        critical=True,
-    )
 
 
 def send_new_recipe_notification(to: str, creator_username: str, recipe_title: str) -> None:

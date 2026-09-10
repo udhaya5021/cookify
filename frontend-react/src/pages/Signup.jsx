@@ -66,9 +66,7 @@ export default function Signup() {
               <button className="btn" type="submit" style={{ width: "100%" }}>Finish setup</button>
             </form>
             <p className="form-note">
-              <a href="#" onClick={(e) => { e.preventDefault(); navigate("/browse"); }}>
-                Skip for now — we'll email codes instead
-              </a>
+              You'll need this app to sign in, so finish setup before continuing.
             </p>
           </>
         ) : (

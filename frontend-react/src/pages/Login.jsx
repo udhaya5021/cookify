@@ -9,7 +9,9 @@ export default function Login() {
   const [remember, setRemember] = useState(false);
   const [otp, setOtp] = useState("");
   const [pendingEmail, setPendingEmail] = useState("");
-  const [otpMethod, setOtpMethod] = useState("email");
+  const [otpMethod, setOtpMethod] = useState("totp");
+  const [enrol, setEnrol] = useState(null);   // shown when 2FA was never set up
+  const [enrolCode, setEnrolCode] = useState("");
   const [alert, setAlertMsg] = useState(null);
   const navigate = useNavigate();
 
@@ -21,9 +23,14 @@ export default function Login() {
         method: "POST",
         body: { identifier, password, device_token: getDeviceToken() },
       });
-      if (res.requires_otp) {
+      if (res.requires_enrolment) {
+        // Signup was abandoned at the QR step — finish it now rather than
+        // leaving the account with no way in.
+        setToken(res.access_token);
+        setEnrol(res.totp);
+      } else if (res.requires_otp) {
         setPendingEmail(res.email);
-        setOtpMethod(res.method || "email");
+        setOtpMethod(res.method || "totp");
       } else {
         setToken(res.access_token);
         navigate("/browse");
@@ -53,13 +60,40 @@ export default function Login() {
     }
   }
 
+  async function confirmEnrol(e) {
+    e.preventDefault();
+    setAlertMsg(null);
+    try {
+      await api("/api/users/me/2fa/totp/confirm", { method: "POST", auth: true, body: { code: enrolCode } });
+      navigate("/browse");
+    } catch (err) {
+      setAlertMsg(err.message);
+    }
+  }
+
   return (
     <Layout>
       <div className="form-card">
-        <h1>Login</h1>
+        <h1>{enrol ? "Set up your authenticator" : "Login"}</h1>
         {alert && <div className="alert error">{alert}</div>}
 
-        {!pendingEmail ? (
+        {enrol ? (
+          <>
+            <p className="meta" style={{ marginBottom: 12 }}>
+              Your account still needs an authenticator app. Scan this, then enter
+              the code it shows.
+            </p>
+            <div className="totp-qr" dangerouslySetInnerHTML={{ __html: enrol.qr_svg }} />
+            <p className="meta">Can't scan? Enter this key manually:</p>
+            <code className="totp-secret">{enrol.secret}</code>
+            <form onSubmit={confirmEnrol} style={{ marginTop: 14 }}>
+              <input type="text" inputMode="numeric" autoComplete="one-time-code"
+                placeholder="6-digit code from the app" required
+                value={enrolCode} onChange={(e) => setEnrolCode(e.target.value)} />
+              <button className="btn" type="submit" style={{ width: "100%" }}>Finish setup</button>
+            </form>
+          </>
+        ) : !pendingEmail ? (
           <form onSubmit={submitLogin}>
             <input type="text" placeholder="Username / Email / Phone Number" required
               value={identifier} onChange={(e) => setIdentifier(e.target.value)} />
@@ -75,9 +109,7 @@ export default function Login() {
         ) : (
           <form onSubmit={submitOtp}>
             <p style={{ marginBottom: 12, fontSize: 14 }}>
-              {otpMethod === "totp"
-                ? "Open your authenticator app and enter the current 6-digit code."
-                : "A 6-digit code was emailed to you."}
+"Open your authenticator app and enter the current 6-digit code."
             </p>
             <input type="text" inputMode="numeric" autoComplete="one-time-code" placeholder="2FA OTP" required value={otp} onChange={(e) => setOtp(e.target.value)} />
             <button className="btn" type="submit" style={{ width: "100%" }}>Verify Code</button>
