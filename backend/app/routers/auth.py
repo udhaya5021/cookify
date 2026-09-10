@@ -13,6 +13,7 @@ from app.services.security import (
     create_access_token, generate_otp, generate_device_token,
 )
 from app.services.email_service import send_otp_email
+from app.services import totp_service
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -77,24 +78,38 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
     if not user.two_fa_enabled:
         return {"message": "Login Success", "access_token": create_access_token(user.id)}
 
+    # Authenticator app: the code already exists on the user's device, so
+    # there's nothing to generate or send here.
+    if user.two_fa_method == "totp" and user.totp_confirmed:
+        return {
+            "message": "Enter the code from your authenticator app",
+            "requires_otp": True, "method": "totp", "email": user.email,
+        }
+
     otp = generate_otp()
     _pending_otps[user.email] = (otp, datetime.utcnow() + timedelta(minutes=10))
     send_otp_email(user.email, otp)
-    return {"message": "OTP sent to your email", "requires_otp": True, "email": user.email}
+    return {"message": "OTP sent to your email", "requires_otp": True, "method": "email", "email": user.email}
 
 
 @router.post("/verify-otp")
 def verify_otp(body: VerifyOtpRequest, db: Session = Depends(get_db)):
-    pending = _pending_otps.get(body.email)
-    if not pending or pending[1] < datetime.utcnow():
-        raise HTTPException(400, "OTP expired or not found — please log in again")
-    if pending[0] != body.otp:
-        raise HTTPException(400, "Incorrect OTP")
-
-    del _pending_otps[body.email]
     user = db.query(User).filter(User.email == body.email).first()
     if not user:
         raise HTTPException(404, "User not found")
+
+    if user.two_fa_method == "totp" and user.totp_confirmed:
+        # Nothing pending server-side: the code is derived from the shared
+        # secret and the current time, so it's checked directly.
+        if not totp_service.verify(user.totp_secret, body.otp):
+            raise HTTPException(400, "Incorrect code — check your authenticator app")
+    else:
+        pending = _pending_otps.get(body.email)
+        if not pending or pending[1] < datetime.utcnow():
+            raise HTTPException(400, "OTP expired or not found — please log in again")
+        if pending[0] != body.otp:
+            raise HTTPException(400, "Incorrect OTP")
+        del _pending_otps[body.email]
 
     response = {"message": "Login Success", "access_token": create_access_token(user.id)}
     if body.remember_device:

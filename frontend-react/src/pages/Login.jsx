@@ -9,6 +9,7 @@ export default function Login() {
   const [remember, setRemember] = useState(false);
   const [otp, setOtp] = useState("");
   const [pendingEmail, setPendingEmail] = useState("");
+  const [otpMethod, setOtpMethod] = useState("email");
   const [alert, setAlertMsg] = useState(null);
   const navigate = useNavigate();
 
@@ -22,6 +23,7 @@ export default function Login() {
       });
       if (res.requires_otp) {
         setPendingEmail(res.email);
+        setOtpMethod(res.method || "email");
       } else {
         setToken(res.access_token);
         navigate("/browse");
@@ -72,8 +74,12 @@ export default function Login() {
           </form>
         ) : (
           <form onSubmit={submitOtp}>
-            <p style={{ marginBottom: 12, fontSize: 14 }}>A 6-digit code was emailed to you.</p>
-            <input type="text" placeholder="2FA OTP" required value={otp} onChange={(e) => setOtp(e.target.value)} />
+            <p style={{ marginBottom: 12, fontSize: 14 }}>
+              {otpMethod === "totp"
+                ? "Open your authenticator app and enter the current 6-digit code."
+                : "A 6-digit code was emailed to you."}
+            </p>
+            <input type="text" inputMode="numeric" autoComplete="one-time-code" placeholder="2FA OTP" required value={otp} onChange={(e) => setOtp(e.target.value)} />
             <button className="btn" type="submit" style={{ width: "100%" }}>Verify Code</button>
           </form>
         )}

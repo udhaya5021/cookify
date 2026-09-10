@@ -26,8 +26,16 @@ class User(Base):
     bio = Column(String, default="")
     profile_picture_url = Column(String, default="")
 
-    # 2FA — email OTP, per the assignment's login wireframe
+    # 2FA. The wireframe specifies an emailed 6-digit code, which stays the
+    # default; "totp" swaps that for an authenticator app (Google Authenticator,
+    # Authy, 1Password...), which is a genuinely separate factor rather than
+    # one that shares a channel with password reset.
     two_fa_enabled = Column(Boolean, default=True)
+    two_fa_method = Column(String, default="email")  # "email" | "totp"
+    # Set when TOTP setup begins, but only trusted once the user proves they
+    # can generate a code from it — see totp_confirmed.
+    totp_secret = Column(String, default="")
+    totp_confirmed = Column(Boolean, default=False)
 
     # Ban system — "banned after 3 warnings" (test case 11)
     warning_count = Column(Integer, default=0)

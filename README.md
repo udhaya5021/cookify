@@ -74,7 +74,7 @@ Nothing else changes — SQLAlchemy handles the dialect, and `migrate_to_postgre
 | Case | How to verify |
 |---|---|
 | Account creation | Sign up (includes phone number, per the Sign Up pseudocode) |
-| Login + 2FA | Log in with username, email, *or* phone number — OTP is emailed for real (or printed to console if SMTP isn't configured) |
+| Login + 2FA | Log in with username, email, *or* phone number. Two second-factor methods: an emailed 6-digit code (the wireframe's default) or an authenticator app (TOTP) — switch in Edit Profile |
 | Recipe upload/search/filter | Upload a recipe, then search/filter by ingredient, utensil, cost, time, calories, speed, difficulty, dietary tag, food type, cuisine, and rating |
 | Veg/Non-veg + dietary dropdown | Browse page — "Veg only" toggle, plus the Vegetarian/Eggetarian/Pescetarian/Jain/Non-Vegetarian dropdown |
 | Popularity sort | Sort by Popularity (driven by view count) |

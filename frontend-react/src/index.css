@@ -541,3 +541,24 @@ footer a:hover { opacity: 0.85; }
 
 /* Multi-language selector — pairs with the Google Translate widget in app.js */
 #google_translate_element { margin-left: 12px; }
+
+/* ── TOTP (authenticator app) enrolment ─────────────────────────────── */
+.totp-box {
+  background: #f8f2e6;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 18px;
+}
+.totp-qr {
+  background: #fff; padding: 12px; border-radius: 12px;
+  width: 190px; margin: 4px 0 12px;
+  border: 1px solid var(--border);
+}
+.totp-qr svg { width: 100%; height: auto; display: block; }
+.totp-secret {
+  display: inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px; letter-spacing: 0.08em; word-break: break-all;
+  background: #fff; border: 1px solid var(--border);
+  border-radius: 8px; padding: 7px 11px; margin-top: 4px;
+}

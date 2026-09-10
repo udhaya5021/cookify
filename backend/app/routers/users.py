@@ -5,12 +5,14 @@ import os
 import shutil
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import get_current_user
 from app.models import User, Recipe, Subscription, SavedRecipe
 from app.routers.recipes import _serialize, UPLOAD_DIR, _ALLOWED_MEDIA_EXT
+from app.services import totp_service
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
@@ -80,7 +82,62 @@ def get_profile(user_id: int, db: Session = Depends(get_db)):
 def my_settings(user: User = Depends(get_current_user)):
     """Account settings only the owner should see — whether 2FA is on is not
     something to advertise on a public profile."""
-    return {"two_fa_enabled": user.two_fa_enabled}
+    return {
+        "two_fa_enabled": user.two_fa_enabled,
+        "two_fa_method": user.two_fa_method or "email",
+        "totp_confirmed": bool(user.totp_confirmed),
+    }
+
+
+@router.post("/me/2fa/totp/setup")
+def totp_setup(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Issue a fresh secret and the QR to enrol it.
+
+    Deliberately does NOT switch the account over to TOTP — the user has to
+    prove they can generate a valid code first (see /confirm). Flipping the
+    method here would lock out anyone who closed the page before scanning.
+    """
+    secret = totp_service.new_secret()
+    user.totp_secret = secret
+    user.totp_confirmed = False
+    db.commit()
+
+    uri = totp_service.provisioning_uri(secret, user.username)
+    return {
+        "secret": secret,          # shown for manual entry when a camera isn't available
+        "otpauth_uri": uri,
+        "qr_svg": totp_service.qr_svg(uri),
+    }
+
+
+class TotpCodeRequest(BaseModel):
+    code: str
+
+
+@router.post("/me/2fa/totp/confirm")
+def totp_confirm(body: TotpCodeRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Activate TOTP, but only once a code from the app checks out."""
+    if not user.totp_secret:
+        raise HTTPException(400, "Start setup first")
+    if not totp_service.verify(user.totp_secret, body.code):
+        raise HTTPException(400, "That code didn't match — check the app and try again")
+
+    user.totp_confirmed = True
+    user.two_fa_method = "totp"
+    user.two_fa_enabled = True
+    db.commit()
+    return {"message": "Authenticator app enabled", "two_fa_method": "totp"}
+
+
+@router.post("/me/2fa/totp/disable")
+def totp_disable(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Back to emailed codes, and discard the secret so a stale enrolment in
+    someone's authenticator app can't be reused later."""
+    user.totp_secret = ""
+    user.totp_confirmed = False
+    user.two_fa_method = "email"
+    db.commit()
+    return {"message": "Switched back to emailed codes", "two_fa_method": "email"}
 
 
 @router.put("/me")

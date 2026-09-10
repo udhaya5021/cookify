@@ -17,6 +17,32 @@ export default function Profile() {
   const [editing, setEditing] = useState(false);
   const [connections, setConnections] = useState(null); // { kind, users } | null
   const [twoFa, setTwoFa] = useState(true);
+  const [twoFaMethod, setTwoFaMethod] = useState("email");
+  const [totpSetup, setTotpSetup] = useState(null);   // { qr_svg, secret }
+  const [totpCode, setTotpCode] = useState("");
+  const [totpMsg, setTotpMsg] = useState(null);
+
+  async function startTotpSetup() {
+    setTotpMsg(null);
+    setTotpSetup(await api("/api/users/me/2fa/totp/setup", { method: "POST", auth: true }));
+  }
+
+  async function confirmTotp(e) {
+    e.preventDefault();
+    try {
+      await api("/api/users/me/2fa/totp/confirm", { method: "POST", auth: true, body: { code: totpCode } });
+      setTwoFaMethod("totp"); setTwoFa(true); setTotpSetup(null); setTotpCode("");
+      setTotpMsg({ type: "success", text: "Authenticator app enabled." });
+    } catch (err) {
+      setTotpMsg({ type: "error", text: err.message });
+    }
+  }
+
+  async function disableTotp() {
+    await api("/api/users/me/2fa/totp/disable", { method: "POST", auth: true });
+    setTwoFaMethod("email"); setTotpSetup(null);
+    setTotpMsg({ type: "success", text: "Back to emailed codes." });
+  }
   const isMe = parseInt(id, 10) === getMyUserId();
 
   async function toggleConnections(kind) {
@@ -43,7 +69,7 @@ export default function Profile() {
       // 2FA state is owner-only, so it comes from a separate settings call
       // rather than the public profile payload.
       api("/api/users/me/settings", { auth: true })
-        .then((s) => setTwoFa(s.two_fa_enabled))
+        .then((s) => { setTwoFa(s.two_fa_enabled); setTwoFaMethod(s.two_fa_method || "email"); })
         .catch(() => {});
     }
   }
@@ -156,11 +182,44 @@ export default function Profile() {
                 <input type="checkbox" checked={twoFa} onChange={(e) => setTwoFa(e.target.checked)} />
                 🔒 Two-factor authentication {twoFa ? "on" : "off"}
               </label>
-              <p className="meta" style={{ margin: "-8px 0 16px" }}>
-                {twoFa
-                  ? "You'll get a 6-digit code by email each time you log in."
-                  : "You'll log in with just your password."}
+              <p className="meta" style={{ margin: "-8px 0 12px" }}>
+                {!twoFa
+                  ? "You'll log in with just your password."
+                  : twoFaMethod === "totp"
+                    ? "You'll enter a code from your authenticator app each time you log in."
+                    : "You'll get a 6-digit code by email each time you log in."}
               </p>
+
+              {twoFa && (
+                <div className="totp-box">
+                  {totpMsg && <div className={`alert ${totpMsg.type}`}>{totpMsg.text}</div>}
+
+                  {twoFaMethod === "totp" ? (
+                    <button type="button" className="btn small secondary" onClick={disableTotp}>
+                      Switch back to emailed codes
+                    </button>
+                  ) : !totpSetup ? (
+                    <button type="button" className="btn small secondary" onClick={startTotpSetup}>
+                      Use an authenticator app instead
+                    </button>
+                  ) : (
+                    <>
+                      <p className="meta" style={{ marginBottom: 10 }}>
+                        Scan this with Google Authenticator, Authy, or 1Password —
+                        then enter the code it shows to finish.
+                      </p>
+                      <div className="totp-qr" dangerouslySetInnerHTML={{ __html: totpSetup.qr_svg }} />
+                      <p className="meta">Can't scan? Enter this key manually:</p>
+                      <code className="totp-secret">{totpSetup.secret}</code>
+                      <div className="field-row" style={{ marginTop: 10 }}>
+                        <input type="text" inputMode="numeric" placeholder="6-digit code"
+                          value={totpCode} onChange={(e) => setTotpCode(e.target.value)} />
+                        <button type="button" className="btn small" onClick={confirmTotp}>Verify &amp; enable</button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
 
               <div className="pfp-row">
                 {(pfpPreview || profile.profile_picture_url) && (
