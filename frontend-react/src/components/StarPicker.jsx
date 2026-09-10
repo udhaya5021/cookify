@@ -20,17 +20,34 @@ export default function StarPicker({ label, value, onChange }) {
 
   return (
     <div style={{ marginBottom: 14 }}>
-      <label style={{ fontSize: 13, display: "block", marginBottom: 4 }}>{label}: {value} / 5</label>
+      <label style={{ fontSize: 13, display: "block", marginBottom: 4 }}>
+        {label}: {value} / 5
+      </label>
       <div
         ref={ref}
         onClick={handleClick}
-        style={{ position: "relative", display: "inline-block", fontSize: 26, lineHeight: 1, cursor: "pointer" }}
+        style={{
+          position: "relative",
+          display: "inline-block",
+          fontSize: 26,
+          lineHeight: 1,
+          cursor: "pointer",
+        }}
       >
         <div style={{ color: "var(--border)" }}>★★★★★</div>
-        <div style={{
-          position: "absolute", top: 0, left: 0, overflow: "hidden",
-          width: `${fillPct}%`, color: "var(--accent)", whiteSpace: "nowrap",
-        }}>★★★★★</div>
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            overflow: "hidden",
+            width: `${fillPct}%`,
+            color: "var(--accent)",
+            whiteSpace: "nowrap",
+          }}
+        >
+          ★★★★★
+        </div>
       </div>
     </div>
   );

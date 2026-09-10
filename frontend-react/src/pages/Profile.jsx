@@ -3,6 +3,7 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
 import PageLoading from "../components/PageLoading";
 import StarRating from "../components/StarRating";
+import Avatar from "../components/Avatar";
 import { useConfirm } from "../hooks/useConfirm";
 import { useToast } from "../hooks/useToast";
 import { api, API_BASE, requireAuthOrAlert, getMyUserId } from "../authGuard";
@@ -20,9 +21,10 @@ export default function Profile() {
   const [pfp, setPfp] = useState(null);
   const [pfpPreview, setPfpPreview] = useState(null);
   const [editing, setEditing] = useState(false);
+  const [recipeTab, setRecipeTab] = useState("uploaded"); // "uploaded" | "saved"
   const [connections, setConnections] = useState(null); // { kind, users } | null
   const [totpConfirmed, setTotpConfirmed] = useState(false);
-  const [totpSetup, setTotpSetup] = useState(null);   // { qr_svg, secret }
+  const [totpSetup, setTotpSetup] = useState(null); // { qr_svg, secret }
   const [totpCode, setTotpCode] = useState("");
   const [totpMsg, setTotpMsg] = useState(null);
 
@@ -35,7 +37,9 @@ export default function Profile() {
     e.preventDefault();
     try {
       await api("/api/users/me/2fa/totp/confirm", { method: "POST", auth: true, body: { code: totpCode } });
-      setTotpConfirmed(true); setTotpSetup(null); setTotpCode("");
+      setTotpConfirmed(true);
+      setTotpSetup(null);
+      setTotpCode("");
       setTotpMsg({ type: "success", text: "Authenticator app enabled." });
     } catch (err) {
       setTotpMsg({ type: "error", text: err.message });
@@ -46,7 +50,8 @@ export default function Profile() {
     const ok = await confirm("Reset your authenticator? You'll set it up again at your next login.");
     if (!ok) return;
     await api("/api/users/me/2fa/totp/reset", { method: "POST", auth: true });
-    setTotpConfirmed(false); setTotpSetup(null);
+    setTotpConfirmed(false);
+    setTotpSetup(null);
     setTotpMsg({ type: "success", text: "Reset — you'll scan a new QR next time you log in." });
   }
   const isMe = parseInt(id, 10) === getMyUserId();
@@ -91,6 +96,7 @@ export default function Profile() {
     // setup) stuck on screen, now showing stale data over the new profile.
     setConnections(null);
     setEditing(false);
+    setRecipeTab("uploaded");
     setTotpSetup(null);
     setTotpCode("");
     setTotpMsg(null);
@@ -103,9 +109,16 @@ export default function Profile() {
     if (!requireAuthOrAlert()) return;
     const wasSubscribed = profile.is_subscribed;
     try {
-      const res = await api(`/api/users/${id}/subscribe`, { method: wasSubscribed ? "DELETE" : "POST", auth: true });
+      const res = await api(`/api/users/${id}/subscribe`, {
+        method: wasSubscribed ? "DELETE" : "POST",
+        auth: true,
+      });
       showToast(res.message, "success");
-      setProfile((prev) => ({ ...prev, is_subscribed: !wasSubscribed, followers: prev.followers + (wasSubscribed ? -1 : 1) }));
+      setProfile((prev) => ({
+        ...prev,
+        is_subscribed: !wasSubscribed,
+        followers: prev.followers + (wasSubscribed ? -1 : 1),
+      }));
     } catch (err) {
       showToast(err.message, "error");
     }
@@ -138,21 +151,29 @@ export default function Profile() {
   return (
     <Layout>
       <div className="container">
-        <div className="recipe-detail">
+        <div className="profile-card">
+          <div className="profile-cover" />
           <div className="profile-header">
-            {profile.profile_picture_url
-              ? <img className="profile-avatar" src={profile.profile_picture_url.startsWith("http") ? profile.profile_picture_url : `${API_BASE}${profile.profile_picture_url}`} alt="" />
-              : <div className="profile-avatar profile-avatar-empty">{profile.username.charAt(0).toUpperCase()}</div>}
+            <Avatar
+              src={profile.profile_picture_url}
+              label={profile.username}
+              className="profile-avatar"
+              emptyClassName="profile-avatar-empty"
+            />
             <div className="profile-info">
               <h1>{profile.username}</h1>
               {(profile.first_name || profile.last_name || profile.age) && (
                 <div className="profile-realname">
                   {[profile.first_name, profile.last_name].filter(Boolean).join(" ")}
-                  {profile.age ? `${profile.first_name || profile.last_name ? " · " : ""}Age ${profile.age}` : ""}
+                  {profile.age
+                    ? `${profile.first_name || profile.last_name ? " · " : ""}Age ${profile.age}`
+                    : ""}
                 </div>
               )}
               <div className="profile-stats">
-                <span><strong>{profile.uploaded_recipes.length}</strong> recipes</span>
+                <span>
+                  <strong>{profile.uploaded_recipes.length}</strong> recipes
+                </span>
                 <button type="button" className="stat-btn" onClick={() => toggleConnections("followers")}>
                   <strong>{profile.followers}</strong> followers
                 </button>
@@ -167,14 +188,19 @@ export default function Profile() {
                     <span className="meta">Loading…</span>
                   ) : connections.users.length === 0 ? (
                     <span className="meta">No {connections.kind} yet.</span>
-                  ) : connections.users.map((u) => (
-                    <Link key={u.id} className="connection" to={`/profile/${u.id}`}>
-                        {u.profile_picture_url
-                          ? <img className="connection-avatar" src={u.profile_picture_url.startsWith("http") ? u.profile_picture_url : `${API_BASE}${u.profile_picture_url}`} alt="" />
-                          : <div className="connection-avatar connection-avatar-empty">{u.username.charAt(0).toUpperCase()}</div>}
-                      {u.username}
-                    </Link>
-                  ))}
+                  ) : (
+                    connections.users.map((u) => (
+                      <Link key={u.id} className="connection" to={`/profile/${u.id}`}>
+                        <Avatar
+                          src={u.profile_picture_url}
+                          label={u.username}
+                          className="connection-avatar"
+                          emptyClassName="connection-avatar-empty"
+                        />
+                        {u.username}
+                      </Link>
+                    ))
+                  )}
                 </div>
               )}
               <p className="profile-bio">{profile.bio || <span className="meta">No bio yet.</span>}</p>
@@ -185,8 +211,15 @@ export default function Profile() {
                   </button>
                 ) : (
                   <>
-                    <button className="btn small secondary" onClick={handleToggleSubscribe}>{profile.is_subscribed ? "🔔 Subscribed ✓" : "🔔 Subscribe"}</button>
-                    <button className="btn small secondary" onClick={() => requireAuthOrAlert() && navigate(`/chat/${id}`)}>Message</button>
+                    <button className="btn small secondary" onClick={handleToggleSubscribe}>
+                      {profile.is_subscribed ? "🔔 Subscribed ✓" : "🔔 Subscribe"}
+                    </button>
+                    <button
+                      className="btn small secondary"
+                      onClick={() => requireAuthOrAlert() && navigate(`/chat/${id}`)}
+                    >
+                      Message
+                    </button>
                   </>
                 )}
               </div>
@@ -199,11 +232,34 @@ export default function Profile() {
             <h3 style={{ marginBottom: 16 }}>Edit Profile</h3>
             <form className="edit-form" onSubmit={submitEdit}>
               <div className="field-row">
-                <input type="text" placeholder="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-                <input type="text" placeholder="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+                <input
+                  type="text"
+                  placeholder="First name"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                />
+                <input
+                  type="text"
+                  placeholder="Last name"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                />
               </div>
-              <textarea rows={3} placeholder="Short bio" value={bio} onChange={(e) => setBio(e.target.value)}></textarea>
-              <input type="number" min="0" max="120" placeholder="Age" style={{ maxWidth: 140 }} value={age} onChange={(e) => setAge(e.target.value)} />
+              <textarea
+                rows={3}
+                placeholder="Short bio"
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+              ></textarea>
+              <input
+                type="number"
+                min="0"
+                max="120"
+                placeholder="Age"
+                style={{ maxWidth: 140 }}
+                value={age}
+                onChange={(e) => setAge(e.target.value)}
+              />
 
               <div className="totp-box">
                 <strong style={{ fontSize: 14 }}>🔒 Two-factor authentication</strong>
@@ -225,16 +281,23 @@ export default function Profile() {
                 ) : (
                   <>
                     <p className="meta" style={{ marginBottom: 10 }}>
-                      Scan this with Google Authenticator, Authy, or 1Password —
-                      then enter the code it shows to finish.
+                      Scan this with Google Authenticator, Authy, or 1Password — then enter the code it shows
+                      to finish.
                     </p>
                     <div className="totp-qr" dangerouslySetInnerHTML={{ __html: totpSetup.qr_svg }} />
                     <p className="meta">Can't scan? Enter this key manually:</p>
                     <code className="totp-secret">{totpSetup.secret}</code>
                     <div className="field-row" style={{ marginTop: 10 }}>
-                      <input type="text" inputMode="numeric" placeholder="6-digit code"
-                        value={totpCode} onChange={(e) => setTotpCode(e.target.value)} />
-                      <button type="button" className="btn small" onClick={confirmTotp}>Verify &amp; enable</button>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="6-digit code"
+                        value={totpCode}
+                        onChange={(e) => setTotpCode(e.target.value)}
+                      />
+                      <button type="button" className="btn small" onClick={confirmTotp}>
+                        Verify &amp; enable
+                      </button>
                     </div>
                   </>
                 )}
@@ -256,53 +319,71 @@ export default function Profile() {
               </div>
 
               <div style={{ display: "flex", gap: 10 }}>
-                <button className="btn small" type="submit">Save changes</button>
-                <button className="btn small secondary" type="button" onClick={() => setEditing(false)}>Cancel</button>
+                <button className="btn small" type="submit">
+                  Save changes
+                </button>
+                <button className="btn small secondary" type="button" onClick={() => setEditing(false)}>
+                  Cancel
+                </button>
               </div>
             </form>
           </div>
         )}
 
-        <h2 style={{ margin: "20px 0 10px" }}>Uploaded Recipes</h2>
-        <div className="recipe-grid">
-          {profile.uploaded_recipes.length === 0
-            ? <div className="empty-state">No recipes uploaded yet.</div>
-            : profile.uploaded_recipes.map((r) => (
-              <div key={r.id} className={`recipe-card ${r.recipe_type === "veg" ? "veg" : ""}`}>
-                <div className="media-wrap">
-                  {r.media_url
-                    ? <img className="thumb" src={`${API_BASE}${r.media_url}`} alt="" />
-                    : <div className="thumb thumb-placeholder">{r.title.charAt(0).toUpperCase()}</div>}
-                  <span className={`badge ${r.recipe_type === "veg" ? "veg" : "nonveg"}`}>{r.recipe_type === "veg" ? "Veg" : "Non-Veg"}</span>
-                </div>
-                <div className="card-body">
-                  <div className="title">{r.title}</div>
-                  <StarRating average={r.average_rating} count={r.rating_count} />
-                  <Link className="btn small" to={`/recipe/${r.id}`}>Open recipe</Link>
-                </div>
-              </div>
-            ))}
+        <div className="profile-tabs">
+          <button
+            type="button"
+            className={`profile-tab ${recipeTab === "uploaded" ? "active" : ""}`}
+            onClick={() => setRecipeTab("uploaded")}
+          >
+            Uploaded <span className="count">({profile.uploaded_recipes.length})</span>
+          </button>
+          <button
+            type="button"
+            className={`profile-tab ${recipeTab === "saved" ? "active" : ""}`}
+            onClick={() => setRecipeTab("saved")}
+          >
+            Saved <span className="count">({profile.saved_recipes.length})</span>
+          </button>
         </div>
 
-        {/* Wireframe callout: "Inverted Yellow Brown Colour Scheme" for Saved Recipes */}
-        <h2 style={{ margin: "20px 0 10px" }}>Saved Recipes</h2>
         <div className="recipe-grid">
-          {profile.saved_recipes.length === 0
-            ? <div className="empty-state">No saved recipes yet.</div>
-            : profile.saved_recipes.map((r) => (
-              <div key={r.id} className="recipe-card saved">
+          {(recipeTab === "uploaded" ? profile.uploaded_recipes : profile.saved_recipes).length === 0 ? (
+            <div className="empty-state">
+              {recipeTab === "uploaded" ? "No recipes uploaded yet." : "No saved recipes yet."}
+            </div>
+          ) : (
+            (recipeTab === "uploaded" ? profile.uploaded_recipes : profile.saved_recipes).map((r) => (
+              <div
+                key={r.id}
+                className={`recipe-card ${recipeTab === "uploaded" && r.recipe_type === "veg" ? "veg" : ""} ${recipeTab === "saved" ? "saved" : ""}`}
+              >
                 <div className="media-wrap">
-                  {r.media_url
-                    ? <img className="thumb" src={`${API_BASE}${r.media_url}`} alt="" />
-                    : <div className="thumb thumb-placeholder">{r.title.charAt(0).toUpperCase()}</div>}
+                  <Avatar
+                    src={r.media_url}
+                    label={r.title}
+                    className="thumb"
+                    emptyClassName="thumb-placeholder"
+                  />
+                  {recipeTab === "uploaded" && (
+                    <span className={`badge ${r.recipe_type === "veg" ? "veg" : "nonveg"}`}>
+                      {r.recipe_type === "veg" ? "Veg" : "Non-Veg"}
+                    </span>
+                  )}
                 </div>
                 <div className="card-body">
                   <div className="title">{r.title}</div>
                   <StarRating average={r.average_rating} count={r.rating_count} />
-                  <Link className="btn small secondary" to={`/recipe/${r.id}`}>Open recipe</Link>
+                  <Link
+                    className={`btn small ${recipeTab === "saved" ? "secondary" : ""}`}
+                    to={`/recipe/${r.id}`}
+                  >
+                    Open recipe
+                  </Link>
                 </div>
               </div>
-            ))}
+            ))
+          )}
         </div>
       </div>
 

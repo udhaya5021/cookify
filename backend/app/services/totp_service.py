@@ -1,10 +1,11 @@
 """Authenticator-app 2FA (TOTP, RFC 6238) — the Google Authenticator scheme.
 
-Why this exists alongside the emailed OTP the wireframe specifies: an emailed
-code travels the same channel as password reset, so a compromised inbox defeats
-both factors. A TOTP secret never leaves the device after enrolment, so there is
+Chosen over the emailed OTP the wireframe specifies: an emailed code travels
+the same channel as password reset, so a compromised inbox defeats both
+factors. A TOTP secret never leaves the device after enrolment, so there is
 nothing in transit to intercept.
 """
+
 import io
 
 import pyotp

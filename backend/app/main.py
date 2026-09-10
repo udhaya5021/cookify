@@ -3,19 +3,21 @@
 Entry point: creates the FastAPI app, wires up all routers, mounts uploaded
 media as static files, and creates the SQLite tables on startup.
 """
+
 import os
+
 from dotenv import load_dotenv
 
 load_dotenv()
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
-from app.database import Base, engine
 from app import models  # noqa: F401 — import registers all models with Base
-from app.routers import auth, recipes, social, chat, users
+from app.database import Base, engine
+from app.routers import auth, chat, recipes, social, users
 
 app = FastAPI(title="Cookify API")
 
@@ -59,21 +61,31 @@ def health():
 # path (JS/CSS/assets/favicon), otherwise fall back to index.html so React
 # Router can take over and resolve the route client-side. Registered last so
 # it never shadows the /api/* routes above.
-_FRONTEND_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend-react", "dist"))
+_FRONTEND_DIR = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "frontend-react", "dist")
+)
 
 # Only serve the production-built frontend from the backend when explicitly
 # requested. During development we want the Vite dev server (with HMR)
 # to serve the app and proxy API calls to this backend; serving the static
 # `dist/` here can result in stale content showing up on http://localhost:8000.
 if os.getenv("SERVE_FRONTEND", "") == "1" and os.path.isdir(_FRONTEND_DIR):
-    app.mount("/assets", StaticFiles(directory=os.path.join(_FRONTEND_DIR, "assets")), name="frontend-assets")
+    app.mount(
+        "/assets",
+        StaticFiles(directory=os.path.join(_FRONTEND_DIR, "assets")),
+        name="frontend-assets",
+    )
 
     _INDEX_HTML = os.path.join(_FRONTEND_DIR, "index.html")
 
     @app.get("/{full_path:path}")
     def serve_frontend(full_path: str, request: Request):
         candidate = os.path.normpath(os.path.join(_FRONTEND_DIR, full_path))
-        if candidate.startswith(_FRONTEND_DIR) and os.path.isfile(candidate) and candidate != _INDEX_HTML:
+        if (
+            candidate.startswith(_FRONTEND_DIR)
+            and os.path.isfile(candidate)
+            and candidate != _INDEX_HTML
+        ):
             return FileResponse(candidate)
         # index.html names the content-hashed JS/CSS bundles, so it has to be
         # revalidated on every load. Cached, it keeps pointing a browser at a

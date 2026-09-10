@@ -4,9 +4,12 @@ class Recipe -> subclass VegRecipe, subclass NonVegRecipe.
 Uses SQLAlchemy single-table inheritance (a `recipe_type` discriminator column)
 so this is real, queryable polymorphism, not just decorative subclassing.
 """
+
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Text, LargeBinary
+
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, LargeBinary, String, Text
 from sqlalchemy.orm import relationship
+
 from app.database import Base
 
 # Test case 5 asks for a dropdown beyond a plain veg/non-veg boolean, and the
@@ -21,27 +24,33 @@ class Recipe(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, nullable=False, index=True)
-    ingredients = Column(Text, nullable=False)       # comma-separated or freeform
-    utensils = Column(Text, default="")               # required equipment — searchable
+    ingredients = Column(Text, nullable=False)  # comma-separated or freeform
+    utensils = Column(Text, default="")  # required equipment — searchable
     steps = Column(Text, nullable=False)
-    media_url = Column(String, default="")            # photo/video attachment (points at GET /api/recipes/{id}/media)
-    media_data = Column(LargeBinary, nullable=True)    # the actual bytes — stored in Postgres, not local disk
+    media_url = Column(
+        String, default=""
+    )  # photo/video attachment (points at GET /api/recipes/{id}/media)
+    media_data = Column(
+        LargeBinary, nullable=True
+    )  # the actual bytes — stored in Postgres, not local disk
     media_content_type = Column(String, default="")
 
-    cost = Column(Float, default=0.0)                 # budget filter
-    cooking_time_minutes = Column(Integer, default=0) # prep/cook time filter
-    calories = Column(Integer, default=0)              # nutrition filter
+    cost = Column(Float, default=0.0)  # budget filter
+    cooking_time_minutes = Column(Integer, default=0)  # prep/cook time filter
+    calories = Column(Integer, default=0)  # nutrition filter
     protein = Column(Integer, default=0)
 
     # Test case 4 explicitly lists these as required search filters; test
     # case 5 asks for a dietary dropdown beyond a plain veg/non-veg flag.
-    speed = Column(Float, default=3.0)                 # 0.5-5 star rating
-    difficulty = Column(Float, default=3.0)            # 0.5-5 star rating
-    dietary_tag = Column(String, default="vegetarian") # vegetarian/eggetarian/pescetarian/jain/non_vegetarian
-    food_type = Column(String, default="")             # appetizer/bread/dessert/main course/etc.
-    region = Column(String, default="")                # cuisine — "pan-Asian", "English", etc.
+    speed = Column(Float, default=3.0)  # 0.5-5 star rating
+    difficulty = Column(Float, default=3.0)  # 0.5-5 star rating
+    dietary_tag = Column(
+        String, default="vegetarian"
+    )  # vegetarian/eggetarian/pescetarian/jain/non_vegetarian
+    food_type = Column(String, default="")  # appetizer/bread/dessert/main course/etc.
+    region = Column(String, default="")  # cuisine — "pan-Asian", "English", etc.
 
-    view_count = Column(Integer, default=0)            # drives "popularity" sort
+    view_count = Column(Integer, default=0)  # drives "popularity" sort
     creator_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -65,9 +74,16 @@ class Recipe(Base):
         return round(sum(r.score for r in self.ratings) / len(self.ratings), 1)
 
     def matches_filters(
-        self, *, max_cost=None, max_time=None, max_calories=None,
-        min_speed=None, min_difficulty=None, dietary_tag=None,
-        food_type=None, region=None,
+        self,
+        *,
+        max_cost=None,
+        max_time=None,
+        max_calories=None,
+        min_speed=None,
+        min_difficulty=None,
+        dietary_tag=None,
+        food_type=None,
+        region=None,
     ) -> bool:
         """Polymorphism point: subclasses can override this to add their own
         filter rules (e.g. VegRecipe could reject a `veg_only=False` search)."""
@@ -104,10 +120,23 @@ class Recipe(Base):
 
     @classmethod
     def searchRecipe(
-        cls, db, *, q="", ingredient="", utensil="", veg_only=False,
-        max_cost=None, max_time=None, max_calories=None,
-        min_speed=None, min_difficulty=None, min_rating=None,
-        dietary_tag="", food_type="", region="", sort="popularity",
+        cls,
+        db,
+        *,
+        q="",
+        ingredient="",
+        utensil="",
+        veg_only=False,
+        max_cost=None,
+        max_time=None,
+        max_calories=None,
+        min_speed=None,
+        min_difficulty=None,
+        min_rating=None,
+        dietary_tag="",
+        food_type="",
+        region="",
+        sort="popularity",
         subscribed_creator_ids=None,
     ) -> list["Recipe"]:
         """Recipe Search Method pseudocode: query, then apply filters and
@@ -129,11 +158,17 @@ class Recipe(Base):
 
         # Polymorphic pass — each instance applies its own matches_filters().
         matches = [
-            r for r in query.all()
+            r
+            for r in query.all()
             if r.matches_filters(
-                max_cost=max_cost, max_time=max_time, max_calories=max_calories,
-                min_speed=min_speed, min_difficulty=min_difficulty,
-                dietary_tag=dietary_tag, food_type=food_type, region=region,
+                max_cost=max_cost,
+                max_time=max_time,
+                max_calories=max_calories,
+                min_speed=min_speed,
+                min_difficulty=min_difficulty,
+                dietary_tag=dietary_tag,
+                food_type=food_type,
+                region=region,
                 veg_only=veg_only,
             )
         ]

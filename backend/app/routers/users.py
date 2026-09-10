@@ -1,13 +1,15 @@
 """Profile view/edit — matches the assignment's Profile Page wireframe
 (profile picture, username, bio, uploaded recipes)."""
+
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, File, Form
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import get_current_user, get_current_user_optional
-from app.models import User, Recipe, Subscription, SavedRecipe
+from app.models import Recipe, SavedRecipe, Subscription, User
 from app.routers.recipes import _serialize
 from app.services import totp_service
 from app.services.media import read_validated_media
@@ -22,13 +24,17 @@ def _profile(db: Session, user: User, viewer: Optional[User] = None) -> dict:
 
     # Profile Page wireframe: a second grid, "Saved Recipes", distinct from
     # what this user has uploaded.
-    saved_ids = [s.recipe_id for s in db.query(SavedRecipe).filter(SavedRecipe.user_id == user.id).all()]
+    saved_ids = [
+        s.recipe_id for s in db.query(SavedRecipe).filter(SavedRecipe.user_id == user.id).all()
+    ]
     saved_recipes = db.query(Recipe).filter(Recipe.id.in_(saved_ids)).all() if saved_ids else []
 
     is_subscribed = bool(
-        viewer and viewer.id != user.id and db.query(Subscription).filter(
-            Subscription.subscriber_id == viewer.id, Subscription.creator_id == user.id
-        ).first()
+        viewer
+        and viewer.id != user.id
+        and db.query(Subscription)
+        .filter(Subscription.subscriber_id == viewer.id, Subscription.creator_id == user.id)
+        .first()
     )
 
     return {
@@ -52,8 +58,10 @@ def _summaries(db: Session, ids: list[int]) -> list[dict]:
         return []
     return [
         {
-            "id": u.id, "username": u.username,
-            "first_name": u.first_name, "last_name": u.last_name,
+            "id": u.id,
+            "username": u.username,
+            "first_name": u.first_name,
+            "last_name": u.last_name,
             "profile_picture_url": u.profile_picture_url,
         }
         for u in db.query(User).filter(User.id.in_(ids)).all()
@@ -76,7 +84,11 @@ def list_following(user_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/{user_id}")
-def get_profile(user_id: int, db: Session = Depends(get_db), viewer: Optional[User] = Depends(get_current_user_optional)):
+def get_profile(
+    user_id: int,
+    db: Session = Depends(get_db),
+    viewer: Optional[User] = Depends(get_current_user_optional),
+):
     user = db.query(User).get(user_id)
     if not user:
         raise HTTPException(404, "User not found")
@@ -105,7 +117,7 @@ def totp_setup(user: User = Depends(get_current_user), db: Session = Depends(get
 
     uri = totp_service.provisioning_uri(secret, user.username)
     return {
-        "secret": secret,          # shown for manual entry when a camera isn't available
+        "secret": secret,  # shown for manual entry when a camera isn't available
         "otpauth_uri": uri,
         "qr_svg": totp_service.qr_svg(uri),
     }
@@ -116,7 +128,9 @@ class TotpCodeRequest(BaseModel):
 
 
 @router.post("/me/2fa/totp/confirm")
-def totp_confirm(body: TotpCodeRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def totp_confirm(
+    body: TotpCodeRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
     """Activate TOTP, but only once a code from the app checks out."""
     if not user.totp_secret:
         raise HTTPException(400, "Start setup first")
@@ -175,4 +189,7 @@ def get_avatar(user_id: int, db: Session = Depends(get_db)):
     user = db.query(User).get(user_id)
     if not user or not user.profile_picture_data:
         raise HTTPException(404, "No avatar for this user")
-    return Response(content=user.profile_picture_data, media_type=user.profile_picture_content_type or "application/octet-stream")
+    return Response(
+        content=user.profile_picture_data,
+        media_type=user.profile_picture_content_type or "application/octet-stream",
+    )

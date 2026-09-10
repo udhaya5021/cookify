@@ -4,9 +4,11 @@ Driven by DATABASE_URL so the same code runs on SQLite locally (zero setup)
 and on a Postgres server in deployment — no code change between the two,
 just the environment variable. SQLAlchemy handles the dialect differences.
 """
+
 import os
+
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 # Absolute path, derived from this file's own location — a relative
 # "./cookify.db" resolves against the process's working directory at

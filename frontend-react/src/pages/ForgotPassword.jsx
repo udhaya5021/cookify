@@ -26,17 +26,26 @@ export default function ForgotPassword() {
         {alert && <div className={`alert ${alert.type}`}>{alert.text}</div>}
         {sent ? (
           <p className="meta">
-            We've emailed a password reset link to the address on file for that account.
-            It works once and expires in 30 minutes.
+            We've emailed a password reset link to the address on file for that account. It works once and
+            expires in 30 minutes.
           </p>
         ) : (
           <form onSubmit={submit}>
-            <input type="text" placeholder="Username / Email / Phone Number" required
-              value={identifier} onChange={(e) => setIdentifier(e.target.value)} />
-            <button className="btn" type="submit" style={{ width: "100%" }}>Send reset link</button>
+            <input
+              type="text"
+              placeholder="Username / Email / Phone Number"
+              required
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+            />
+            <button className="btn" type="submit" style={{ width: "100%" }}>
+              Send reset link
+            </button>
           </form>
         )}
-        <p className="form-note"><Link to="/login">Back to Login</Link></p>
+        <p className="form-note">
+          <Link to="/login">Back to Login</Link>
+        </p>
       </div>
     </Layout>
   );

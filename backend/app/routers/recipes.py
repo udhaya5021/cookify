@@ -1,20 +1,23 @@
 """Recipe upload, search/filter, and view — matches the assignment's
 Recipe Upload Method and Recipe Search Method pseudocode."""
+
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, File, Form
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
 
 from app.database import get_db
 from app.deps import get_current_user, get_current_user_optional
-from app.models import User, Recipe, SavedRecipe, Subscription
+from app.models import Recipe, SavedRecipe, Subscription, User
 from app.models.recipe import DIETARY_TAGS
 from app.services.media import read_validated_media
 
 router = APIRouter(prefix="/api/recipes", tags=["recipes"])
 
 
-def _serialize(r: Recipe, *, is_saved: bool = False, is_subscribed_to_creator: bool = False) -> dict:
+def _serialize(
+    r: Recipe, *, is_saved: bool = False, is_subscribed_to_creator: bool = False
+) -> dict:
     return {
         "is_saved": is_saved,
         "is_subscribed_to_creator": is_subscribed_to_creator,
@@ -79,10 +82,20 @@ async def upload_recipe(
     # polymorphism is decided in the domain layer rather than in the route.
     recipe = user.uploadRecipe(
         db,
-        title=title, ingredients=ingredients, utensils=utensils, steps=steps,
-        media_url="", cost=cost, cooking_time_minutes=cooking_time_minutes,
-        calories=calories, protein=protein, speed=speed, difficulty=difficulty,
-        dietary_tag=dietary_tag, food_type=food_type, region=region,
+        title=title,
+        ingredients=ingredients,
+        utensils=utensils,
+        steps=steps,
+        media_url="",
+        cost=cost,
+        cooking_time_minutes=cooking_time_minutes,
+        calories=calories,
+        protein=protein,
+        speed=speed,
+        difficulty=difficulty,
+        dietary_tag=dietary_tag,
+        food_type=food_type,
+        region=region,
     )
 
     # media_url points at this recipe's own /media endpoint — it can only be
@@ -97,6 +110,7 @@ async def upload_recipe(
     # Notify subscribers — fire-and-forget style; see social.py for the actual
     # subscription-triggered email, kept there to avoid circular imports.
     from app.routers.social import notify_subscribers_of_new_recipe
+
     notify_subscribers_of_new_recipe(db, user, recipe)
 
     return {"message": "Recipe Uploaded Successfully", "recipe": _serialize(recipe)}
@@ -110,7 +124,10 @@ def get_recipe_media(recipe_id: int, db: Session = Depends(get_db)):
     recipe = db.query(Recipe).get(recipe_id)
     if not recipe or not recipe.media_data:
         raise HTTPException(404, "No media for this recipe")
-    return Response(content=recipe.media_data, media_type=recipe.media_content_type or "application/octet-stream")
+    return Response(
+        content=recipe.media_data,
+        media_type=recipe.media_content_type or "application/octet-stream",
+    )
 
 
 @router.get("")
@@ -123,7 +140,9 @@ def search_recipes(
     max_calories: Optional[int] = None,
     min_speed: Optional[float] = None,
     min_difficulty: Optional[float] = None,
-    min_rating: Optional[float] = None,  # Recipe Search Method pseudocode: "Filter by Rating or Tags"
+    min_rating: Optional[
+        float
+    ] = None,  # Recipe Search Method pseudocode: "Filter by Rating or Tags"
     dietary_tag: str = "",
     food_type: str = "",
     region: str = "",
@@ -136,41 +155,65 @@ def search_recipes(
     subscribed_creator_ids = None
     if following_only:
         subscribed_creator_ids = [
-            s.creator_id for s in (
+            s.creator_id
+            for s in (
                 db.query(Subscription).filter(Subscription.subscriber_id == viewer.id).all()
-                if viewer else []
+                if viewer
+                else []
             )
         ]
 
     # UML: Recipe.searchRecipe() — the query, the polymorphic filter pass and
     # the ordering all live on the class.
     filtered = Recipe.searchRecipe(
-        db, q=q, ingredient=ingredient, utensil=utensil, veg_only=veg_only,
-        max_cost=max_cost, max_time=max_time, max_calories=max_calories,
-        min_speed=min_speed, min_difficulty=min_difficulty, min_rating=min_rating,
-        dietary_tag=dietary_tag, food_type=food_type, region=region, sort=sort,
+        db,
+        q=q,
+        ingredient=ingredient,
+        utensil=utensil,
+        veg_only=veg_only,
+        max_cost=max_cost,
+        max_time=max_time,
+        max_calories=max_calories,
+        min_speed=min_speed,
+        min_difficulty=min_difficulty,
+        min_rating=min_rating,
+        dietary_tag=dietary_tag,
+        food_type=food_type,
+        region=region,
+        sort=sort,
         subscribed_creator_ids=subscribed_creator_ids,
     )
     return {"count": len(filtered), "recipes": [_serialize(r) for r in filtered]}
 
 
 @router.get("/{recipe_id}")
-def get_recipe(recipe_id: int, db: Session = Depends(get_db), viewer: Optional[User] = Depends(get_current_user_optional)):
+def get_recipe(
+    recipe_id: int,
+    db: Session = Depends(get_db),
+    viewer: Optional[User] = Depends(get_current_user_optional),
+):
     recipe = db.query(Recipe).get(recipe_id)
     if not recipe:
         raise HTTPException(404, "Recipe not found")
     is_saved = bool(
-        viewer and db.query(SavedRecipe).filter(
-            SavedRecipe.user_id == viewer.id, SavedRecipe.recipe_id == recipe_id
-        ).first()
+        viewer
+        and db.query(SavedRecipe)
+        .filter(SavedRecipe.user_id == viewer.id, SavedRecipe.recipe_id == recipe_id)
+        .first()
     )
     is_subscribed = bool(
-        viewer and viewer.id != recipe.creator_id and db.query(Subscription).filter(
+        viewer
+        and viewer.id != recipe.creator_id
+        and db.query(Subscription)
+        .filter(
             Subscription.subscriber_id == viewer.id, Subscription.creator_id == recipe.creator_id
-        ).first()
+        )
+        .first()
     )
     # UML: Recipe.showRecipe() — registers the view, then returns it.
-    return _serialize(recipe.showRecipe(db), is_saved=is_saved, is_subscribed_to_creator=is_subscribed)
+    return _serialize(
+        recipe.showRecipe(db), is_saved=is_saved, is_subscribed_to_creator=is_subscribed
+    )
 
 
 @router.put("/{recipe_id}")
@@ -246,7 +289,9 @@ async def edit_recipe(
 
 
 @router.delete("/{recipe_id}")
-def delete_recipe(recipe_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def delete_recipe(
+    recipe_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
     """Structure Diagram: Display Recipe -> Edit recipe covers editing; this
     is its natural counterpart, gated the same way — creator only."""
     recipe = db.query(Recipe).get(recipe_id)

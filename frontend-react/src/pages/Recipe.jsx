@@ -3,9 +3,10 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
 import PageLoading from "../components/PageLoading";
 import ShareModal from "../components/ShareModal";
+import Avatar from "../components/Avatar";
 import { useConfirm } from "../hooks/useConfirm";
 import { useToast } from "../hooks/useToast";
-import { api, API_BASE, requireAuthOrAlert, getMyUserId } from "../authGuard";
+import { api, requireAuthOrAlert, getMyUserId } from "../authGuard";
 
 export default function Recipe() {
   const { id } = useParams();
@@ -32,7 +33,10 @@ export default function Recipe() {
     setComments(c);
   }
 
-  useEffect(() => { loadRecipe(); loadComments(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    loadRecipe();
+    loadComments();
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleToggleSave() {
     if (!requireAuthOrAlert()) return;
@@ -49,7 +53,10 @@ export default function Recipe() {
     if (!requireAuthOrAlert()) return;
     const wasSubscribed = recipe.is_subscribed_to_creator;
     try {
-      const res = await api(`/api/users/${recipe.creator_id}/subscribe`, { method: wasSubscribed ? "DELETE" : "POST", auth: true });
+      const res = await api(`/api/users/${recipe.creator_id}/subscribe`, {
+        method: wasSubscribed ? "DELETE" : "POST",
+        auth: true,
+      });
       showToast(res.message, "success");
       setRecipe((prev) => ({ ...prev, is_subscribed_to_creator: !wasSubscribed }));
     } catch (err) {
@@ -103,24 +110,37 @@ export default function Recipe() {
     <Layout>
       <div className="container">
         <div className="recipe-detail">
-          <span className={`badge ${recipe.recipe_type === "veg" ? "veg" : "nonveg"}`}>{recipe.dietary_tag.replace("_", " ")}</span>
+          <span className={`badge ${recipe.recipe_type === "veg" ? "veg" : "nonveg"}`}>
+            {recipe.dietary_tag.replace("_", " ")}
+          </span>
           <div className="recipe-header">
             <div style={{ flex: 1 }}>
               <h1>{recipe.title}</h1>
               <div className="meta-row">
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  {recipe.creator_profile_picture_url
-                    ? <img className="inline-avatar" src={recipe.creator_profile_picture_url.startsWith("http") ? recipe.creator_profile_picture_url : `${API_BASE}${recipe.creator_profile_picture_url}`} alt="" />
-                    : <div className="inline-avatar" style={{ background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700 }}>{(recipe.creator_username||"?").charAt(0).toUpperCase()}</div>}
+                  <Avatar
+                    src={recipe.creator_profile_picture_url}
+                    label={recipe.creator_username}
+                    className="inline-avatar"
+                    emptyClassName="inline-avatar-empty"
+                  />
                   <div>
-                    <div>By <Link to={`/profile/${recipe.creator_id}`}>{recipe.creator_username}</Link></div>
-                    {recipe.creator_bio && <div className="author-bio" style={{ marginTop: 4 }}>{recipe.creator_bio}</div>}
+                    <div>
+                      By <Link to={`/profile/${recipe.creator_id}`}>{recipe.creator_username}</Link>
+                    </div>
+                    {recipe.creator_bio && (
+                      <div className="author-bio" style={{ marginTop: 4 }}>
+                        {recipe.creator_bio}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div style={{ marginLeft: 8 }}>
                   {recipe.created_at ? new Date(recipe.created_at).toLocaleDateString() : ""}
-                  {" · "}{recipe.view_count} views · {recipe.rating_count} ratings | Avg {recipe.average_rating}
-                  {recipe.food_type ? " · " + recipe.food_type : ""}{recipe.region ? " · " + recipe.region : ""}
+                  {" · "}
+                  {recipe.view_count} views · {recipe.rating_count} ratings | Avg {recipe.average_rating}
+                  {recipe.food_type ? " · " + recipe.food_type : ""}
+                  {recipe.region ? " · " + recipe.region : ""}
                 </div>
               </div>
             </div>
@@ -131,17 +151,39 @@ export default function Recipe() {
               column of text. */}
           <div className="recipe-layout">
             <div className="recipe-aside">
-              {recipe.media_url
-                ? <img className="thumb" style={{ height: 240 }} src={recipe.media_url.startsWith("http") ? recipe.media_url : `${API_BASE}${recipe.media_url}`} alt="" />
-                : <div className="thumb thumb-placeholder" style={{ height: 240, borderRadius: 12 }}>{recipe.title.charAt(0).toUpperCase()}</div>}
+              <Avatar
+                src={recipe.media_url}
+                label={recipe.title}
+                className="thumb"
+                emptyClassName="thumb-placeholder"
+                style={{ height: 240, borderRadius: 12 }}
+              />
 
               <dl className="recipe-facts">
-                <div><dt>Cost</dt><dd>₹{recipe.cost}</dd></div>
-                <div><dt>Time</dt><dd>{recipe.cooking_time_minutes} min</dd></div>
-                <div><dt>Calories</dt><dd>{recipe.calories}</dd></div>
-                <div><dt>Protein</dt><dd>{recipe.protein}g</dd></div>
-                <div><dt>Speed</dt><dd>{recipe.speed}/5</dd></div>
-                <div><dt>Difficulty</dt><dd>{recipe.difficulty}/5</dd></div>
+                <div>
+                  <dt>Cost</dt>
+                  <dd>₹{recipe.cost}</dd>
+                </div>
+                <div>
+                  <dt>Time</dt>
+                  <dd>{recipe.cooking_time_minutes} min</dd>
+                </div>
+                <div>
+                  <dt>Calories</dt>
+                  <dd>{recipe.calories}</dd>
+                </div>
+                <div>
+                  <dt>Protein</dt>
+                  <dd>{recipe.protein}g</dd>
+                </div>
+                <div>
+                  <dt>Speed</dt>
+                  <dd>{recipe.speed}/5</dd>
+                </div>
+                <div>
+                  <dt>Difficulty</dt>
+                  <dd>{recipe.difficulty}/5</dd>
+                </div>
               </dl>
             </div>
 
@@ -158,41 +200,69 @@ export default function Recipe() {
           <div className="recipe-actions">
             {!isOwner && (
               <button className="btn secondary small" onClick={handleToggleSubscribe}>
-                {recipe.is_subscribed_to_creator ? `Subscribed ✓ ${recipe.creator_username}` : `Subscribe to ${recipe.creator_username}`}
+                {recipe.is_subscribed_to_creator
+                  ? `Subscribed ✓ ${recipe.creator_username}`
+                  : `Subscribe to ${recipe.creator_username}`}
               </button>
             )}
-            <button className="btn secondary small" onClick={handleToggleSave}>{recipe.is_saved ? "Saved ✓" : "Save Recipe"}</button>
-            <button className="btn secondary small" onClick={() => setShareOpen(true)}>Share Recipe</button>
-            {isOwner && <Link className="btn secondary small" to={`/upload?id=${recipe.id}`}>Edit recipe</Link>}
-            {isOwner && <button className="btn danger small" onClick={handleDelete}>Delete recipe</button>}
+            <button className="btn secondary small" onClick={handleToggleSave}>
+              {recipe.is_saved ? "Saved ✓" : "Save Recipe"}
+            </button>
+            <button className="btn secondary small" onClick={() => setShareOpen(true)}>
+              Share Recipe
+            </button>
+            {isOwner && (
+              <Link className="btn secondary small" to={`/upload?id=${recipe.id}`}>
+                Edit recipe
+              </Link>
+            )}
+            {isOwner && (
+              <button className="btn danger small" onClick={handleDelete}>
+                Delete recipe
+              </button>
+            )}
           </div>
         </div>
 
         <div className="recipe-detail">
           <h3>Rate this recipe</h3>
-          <div className="stars" ref={starsRef} onClick={handleRate}>★★★★★</div>
+          <div className="stars" ref={starsRef} onClick={handleRate}>
+            ★★★★★
+          </div>
           {ratingMsg && <div className={`alert ${ratingMsg.type}`}>{ratingMsg.text}</div>}
         </div>
 
         <div className="recipe-detail">
           <h3>Comments</h3>
           <form onSubmit={submitComment} style={{ margin: "16px 0" }}>
-            <textarea rows={3} placeholder="Write a comment..." required value={commentText} onChange={(e) => setCommentText(e.target.value)}></textarea>
-            <button className="btn small" type="submit">Post Comment</button>
+            <textarea
+              rows={3}
+              placeholder="Write a comment..."
+              required
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+            ></textarea>
+            <button className="btn small" type="submit">
+              Post Comment
+            </button>
           </form>
           {commentAlert && <div className="alert error">{commentAlert}</div>}
-          {comments.length === 0
-            ? <div className="empty-state">No comments yet — be the first.</div>
-            : comments.map((c) => (
+          {comments.length === 0 ? (
+            <div className="empty-state">No comments yet — be the first.</div>
+          ) : (
+            comments.map((c) => (
               <div key={c.id} className="comment">
                 <div className="user">{c.username}</div>
                 <div>{c.text}</div>
               </div>
-            ))}
+            ))
+          )}
         </div>
       </div>
 
-      {shareOpen && <ShareModal recipe={recipe} url={window.location.href} onClose={() => setShareOpen(false)} />}
+      {shareOpen && (
+        <ShareModal recipe={recipe} url={window.location.href} onClose={() => setShareOpen(false)} />
+      )}
       {confirmModal}
       {toast}
     </Layout>

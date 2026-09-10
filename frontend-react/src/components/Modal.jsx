@@ -5,17 +5,26 @@ import { useEffect } from "react";
 // and behave the same (Escape to close, backdrop click to close).
 export default function Modal({ title, onClose, children, wide = false }) {
   useEffect(() => {
-    function onKey(e) { if (e.key === "Escape") onClose(); }
+    function onKey(e) {
+      if (e.key === "Escape") onClose();
+    }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className={`modal-card ${wide ? "wide" : ""}`} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+      <div
+        className={`modal-card ${wide ? "wide" : ""}`}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+      >
         <div className="modal-header">
           <h3>{title}</h3>
-          <button type="button" className="modal-close" onClick={onClose} aria-label="Close">×</button>
+          <button type="button" className="modal-close" onClick={onClose} aria-label="Close">
+            ×
+          </button>
         </div>
         <div className="modal-body">{children}</div>
       </div>

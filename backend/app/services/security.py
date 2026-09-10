@@ -1,12 +1,14 @@
 """Password hashing, JWT session tokens, and OTP generation."""
+
 import os
-import secrets as secrets_module
-from typing import Optional
 import random
+import secrets as secrets_module
 import string
 from datetime import datetime, timedelta
-from passlib.context import CryptContext
+from typing import Optional
+
 from jose import jwt
+from passlib.context import CryptContext
 
 # A hardcoded value here would be sitting in plain sight in the source (and
 # this repo is public) — anyone reading it could forge a valid session for
@@ -49,11 +51,6 @@ def decode_access_token(token: str) -> Optional[int]:
         return int(payload["sub"])
     except Exception:
         return None
-
-
-def generate_otp() -> str:
-    """6-digit email OTP, per the login wireframe."""
-    return "".join(random.choices(string.digits, k=6))
 
 
 def generate_device_token() -> str:

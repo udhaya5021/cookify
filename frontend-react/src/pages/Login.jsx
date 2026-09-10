@@ -9,8 +9,7 @@ export default function Login() {
   const [remember, setRemember] = useState(false);
   const [otp, setOtp] = useState("");
   const [pendingEmail, setPendingEmail] = useState("");
-  const [otpMethod, setOtpMethod] = useState("totp");
-  const [enrol, setEnrol] = useState(null);   // shown when 2FA was never set up
+  const [enrol, setEnrol] = useState(null); // shown when 2FA was never set up
   const [enrolCode, setEnrolCode] = useState("");
   const [alert, setAlertMsg] = useState(null);
   const navigate = useNavigate();
@@ -30,7 +29,6 @@ export default function Login() {
         setEnrol(res.totp);
       } else if (res.requires_otp) {
         setPendingEmail(res.email);
-        setOtpMethod(res.method || "totp");
       } else {
         setToken(res.access_token);
         navigate("/browse");
@@ -39,7 +37,9 @@ export default function Login() {
       // Login Method pseudocode: ASK "Forgot Password?" as part of the
       // failed-login response itself, not just a static link on the page.
       setAlertMsg(
-        <>{err.message} — <Link to="/forgot-password">Forgot password?</Link></>
+        <>
+          {err.message} — <Link to="/forgot-password">Forgot password?</Link>
+        </>,
       );
     }
   }
@@ -84,31 +84,54 @@ export default function Login() {
         {enrol ? (
           <div className="totp-box">
             <p className="meta" style={{ marginBottom: 12 }}>
-              Your account still needs an authenticator app. Scan this, then enter
-              the code it shows.
+              Your account still needs an authenticator app. Scan this, then enter the code it shows.
             </p>
             <div className="totp-qr" dangerouslySetInnerHTML={{ __html: enrol.qr_svg }} />
             <p className="meta">Can't scan? Enter this key manually:</p>
             <code className="totp-secret">{enrol.secret}</code>
             <form onSubmit={confirmEnrol}>
-              <input type="text" inputMode="numeric" autoComplete="one-time-code"
-                placeholder="6-digit code from the app" required
-                value={enrolCode} onChange={(e) => setEnrolCode(e.target.value)} />
-              <button className="btn" type="submit" style={{ width: "100%" }}>Finish setup</button>
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder="6-digit code from the app"
+                required
+                value={enrolCode}
+                onChange={(e) => setEnrolCode(e.target.value)}
+              />
+              <button className="btn" type="submit" style={{ width: "100%" }}>
+                Finish setup
+              </button>
             </form>
           </div>
         ) : !pendingEmail ? (
           <form onSubmit={submitLogin}>
-            <input type="text" placeholder="Username / Email / Phone Number" required
-              value={identifier} onChange={(e) => setIdentifier(e.target.value)} />
-            <input type="password" placeholder="Password" required
-              value={password} onChange={(e) => setPassword(e.target.value)} />
+            <input
+              type="text"
+              placeholder="Username / Email / Phone Number"
+              required
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+            />
+            <input
+              type="password"
+              placeholder="Password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
             <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, marginBottom: 14 }}>
-              <input type="checkbox" style={{ width: "auto", margin: 0 }}
-                checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+              <input
+                type="checkbox"
+                style={{ width: "auto", margin: 0 }}
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+              />
               Remember this device
             </label>
-            <button className="btn" type="submit" style={{ width: "100%" }}>Confirm Login</button>
+            <button className="btn" type="submit" style={{ width: "100%" }}>
+              Confirm Login
+            </button>
           </form>
         ) : (
           <div className="totp-box">
@@ -116,14 +139,28 @@ export default function Login() {
               Open your authenticator app and enter the current 6-digit code.
             </p>
             <form onSubmit={submitOtp}>
-              <input type="text" inputMode="numeric" autoComplete="one-time-code" placeholder="6-digit code" required value={otp} onChange={(e) => setOtp(e.target.value)} />
-              <button className="btn" type="submit" style={{ width: "100%" }}>Verify Code</button>
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder="6-digit code"
+                required
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+              />
+              <button className="btn" type="submit" style={{ width: "100%" }}>
+                Verify Code
+              </button>
             </form>
           </div>
         )}
 
-        <p className="form-note"><Link to="/forgot-password">Forgot password?</Link></p>
-        <p className="form-note">Don't have an account? <Link to="/signup">Sign up</Link></p>
+        <p className="form-note">
+          <Link to="/forgot-password">Forgot password?</Link>
+        </p>
+        <p className="form-note">
+          Don't have an account? <Link to="/signup">Sign up</Link>
+        </p>
       </div>
     </Layout>
   );

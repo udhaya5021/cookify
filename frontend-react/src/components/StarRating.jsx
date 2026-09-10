@@ -5,8 +5,10 @@ export default function StarRating({ average, count }) {
   const stars = "★".repeat(rounded) + "☆".repeat(5 - rounded);
   return (
     <div className="rating">
-      <span className="stars" style={{ fontSize: 15, cursor: "default" }}>{stars}</span>
-      {" "}{count}
+      <span className="stars" style={{ fontSize: 15, cursor: "default" }}>
+        {stars}
+      </span>{" "}
+      {count}
     </div>
   );
 }

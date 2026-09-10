@@ -6,14 +6,20 @@ device/network (hosted on Neon), whereas the backend's local filesystem is
 not: it doesn't survive a redeploy or restart on most hosts, and isn't
 shared across multiple server instances.
 """
+
 import os
+
 from fastapi import HTTPException, UploadFile
 
 ALLOWED_MEDIA_EXT = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".mp4", ".webm"}
 _CONTENT_TYPES = {
-    ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
-    ".gif": "image/gif", ".webp": "image/webp",
-    ".mp4": "video/mp4", ".webm": "video/webm",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".mp4": "video/mp4",
+    ".webm": "video/webm",
 }
 
 

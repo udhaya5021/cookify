@@ -1,17 +1,21 @@
 """Comments (with NSFW filtering + warnings), ratings, and subscriptions —
 matches the assignment's Commenting Method, Rating Method, and
 Subscription Method pseudocode, plus the ban-after-3-warnings test case."""
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import get_current_user
-from app.models import User, Recipe, Comment, Rating, Subscription, Warning, SavedRecipe
+from app.models import Comment, Rating, Recipe, SavedRecipe, Subscription, User, Warning
 from app.services.content_filter import validate_comment
 from app.services.email_service import (
-    send_new_recipe_notification, send_warning_email,
-    send_new_comment_notification, send_new_rating_notification, send_new_subscriber_notification,
+    send_new_comment_notification,
+    send_new_rating_notification,
+    send_new_recipe_notification,
+    send_new_subscriber_notification,
+    send_warning_email,
 )
 
 router = APIRouter(prefix="/api", tags=["social"])
@@ -35,14 +39,17 @@ def _issue_warning(db: Session, user: User, reason: str) -> None:
 
 # ── Comments ─────────────────────────────────────────────────────────────
 
+
 class CommentRequest(BaseModel):
     text: str
 
 
 @router.post("/recipes/{recipe_id}/comments")
 def post_comment(
-    recipe_id: int, body: CommentRequest,
-    user: User = Depends(get_current_user), db: Session = Depends(get_db),
+    recipe_id: int,
+    body: CommentRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     recipe = db.query(Recipe).get(recipe_id)
     if not recipe:
@@ -69,17 +76,25 @@ def post_comment(
 
 @router.get("/recipes/{recipe_id}/comments")
 def list_comments(recipe_id: int, db: Session = Depends(get_db)):
-    comments = db.query(Comment).filter(Comment.recipe_id == recipe_id).order_by(Comment.created_at.desc()).all()
+    comments = (
+        db.query(Comment)
+        .filter(Comment.recipe_id == recipe_id)
+        .order_by(Comment.created_at.desc())
+        .all()
+    )
     user_ids = {c.user_id for c in comments}
-    usernames = {
-        u.id: u.username
-        for u in db.query(User).filter(User.id.in_(user_ids)).all()
-    } if user_ids else {}
+    usernames = (
+        {u.id: u.username for u in db.query(User).filter(User.id.in_(user_ids)).all()}
+        if user_ids
+        else {}
+    )
     return [
         {
-            "id": c.id, "user_id": c.user_id,
+            "id": c.id,
+            "user_id": c.user_id,
             "username": usernames.get(c.user_id, f"User #{c.user_id}"),
-            "text": c.text, "created_at": c.created_at.isoformat(),
+            "text": c.text,
+            "created_at": c.created_at.isoformat(),
         }
         for c in comments
     ]
@@ -87,14 +102,17 @@ def list_comments(recipe_id: int, db: Session = Depends(get_db)):
 
 # ── Ratings ──────────────────────────────────────────────────────────────
 
+
 class RatingRequest(BaseModel):
     score: int  # 1-5
 
 
 @router.post("/recipes/{recipe_id}/ratings")
 def rate_recipe(
-    recipe_id: int, body: RatingRequest,
-    user: User = Depends(get_current_user), db: Session = Depends(get_db),
+    recipe_id: int,
+    body: RatingRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     if not (1 <= body.score <= 5):
         raise HTTPException(400, "Rating must be between 1 and 5")
@@ -117,13 +135,18 @@ def rate_recipe(
 # Profile Page wireframe: "Uploaded Recipes" and "Saved Recipes" as two
 # distinct grids — this is the bookmark feature backing the latter.
 
+
 @router.post("/recipes/{recipe_id}/save")
-def save_recipe(recipe_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def save_recipe(
+    recipe_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
     if not db.query(Recipe).get(recipe_id):
         raise HTTPException(404, "Recipe not found")
-    existing = db.query(SavedRecipe).filter(
-        SavedRecipe.user_id == user.id, SavedRecipe.recipe_id == recipe_id
-    ).first()
+    existing = (
+        db.query(SavedRecipe)
+        .filter(SavedRecipe.user_id == user.id, SavedRecipe.recipe_id == recipe_id)
+        .first()
+    )
     if existing:
         return {"message": "Already saved", "saved": True}
     db.add(SavedRecipe(user_id=user.id, recipe_id=recipe_id))
@@ -132,7 +155,9 @@ def save_recipe(recipe_id: int, user: User = Depends(get_current_user), db: Sess
 
 
 @router.delete("/recipes/{recipe_id}/save")
-def unsave_recipe(recipe_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def unsave_recipe(
+    recipe_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
     db.query(SavedRecipe).filter(
         SavedRecipe.user_id == user.id, SavedRecipe.recipe_id == recipe_id
     ).delete()
@@ -142,17 +167,22 @@ def unsave_recipe(recipe_id: int, user: User = Depends(get_current_user), db: Se
 
 # ── Subscriptions ────────────────────────────────────────────────────────
 
+
 @router.post("/users/{creator_id}/subscribe")
-def subscribe(creator_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def subscribe(
+    creator_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
     if creator_id == user.id:
         raise HTTPException(400, "Cannot subscribe to yourself")
     creator = db.query(User).get(creator_id)
     if not creator:
         raise HTTPException(404, "User not found")
 
-    existing = db.query(Subscription).filter(
-        Subscription.subscriber_id == user.id, Subscription.creator_id == creator_id
-    ).first()
+    existing = (
+        db.query(Subscription)
+        .filter(Subscription.subscriber_id == user.id, Subscription.creator_id == creator_id)
+        .first()
+    )
     if existing:
         return {"message": "Already subscribed"}
 
@@ -169,10 +199,14 @@ def subscribe(creator_id: int, user: User = Depends(get_current_user), db: Sessi
 
 
 @router.delete("/users/{creator_id}/subscribe")
-def unsubscribe(creator_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    deleted = db.query(Subscription).filter(
-        Subscription.subscriber_id == user.id, Subscription.creator_id == creator_id
-    ).delete()
+def unsubscribe(
+    creator_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    deleted = (
+        db.query(Subscription)
+        .filter(Subscription.subscriber_id == user.id, Subscription.creator_id == creator_id)
+        .delete()
+    )
     db.commit()
     if not deleted:
         return {"message": "Not subscribed"}

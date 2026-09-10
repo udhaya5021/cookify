@@ -5,15 +5,17 @@ Implemented as simple REST (send + poll) rather than WebSockets — honest
 tradeoff to mention in the interview: WebSockets would give real-time push
 instead of polling, but REST is simpler to reason about and test, and is a
 reasonable v1 for a system that also needs email notifications anyway."""
+
 from datetime import datetime, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, and_
 
 from app.database import get_db
 from app.deps import get_current_user
-from app.models import User, ChatMessage
+from app.models import ChatMessage, User
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
@@ -36,7 +38,9 @@ class TypingRequest(BaseModel):
 
 
 @router.post("/send")
-def send_message(body: SendMessageRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def send_message(
+    body: SendMessageRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
     if not body.text.strip():
         raise HTTPException(400, "Message cannot be empty")
     recipient = db.query(User).get(body.recipient_id)
@@ -67,9 +71,11 @@ def signal_typing(body: TypingRequest, user: User = Depends(get_current_user)):
 def unread_count(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Powers the Navbar badge — polled independently of any open chat, so
     it stays current even if you never open Messages."""
-    count = db.query(ChatMessage).filter(
-        ChatMessage.recipient_id == user.id, ChatMessage.is_read.is_(False)
-    ).count()
+    count = (
+        db.query(ChatMessage)
+        .filter(ChatMessage.recipient_id == user.id, ChatMessage.is_read.is_(False))
+        .count()
+    )
     return {"count": count}
 
 
@@ -104,8 +110,12 @@ def list_conversations(user: User = Depends(get_current_user), db: Session = Dep
     return [
         {
             "user_id": other_id,
-            "username": partners[other_id].username if other_id in partners else f"User #{other_id}",
-            "profile_picture_url": partners[other_id].profile_picture_url if other_id in partners else "",
+            "username": (
+                partners[other_id].username if other_id in partners else f"User #{other_id}"
+            ),
+            "profile_picture_url": (
+                partners[other_id].profile_picture_url if other_id in partners else ""
+            ),
             "last_message": m.text,
             "last_at": m.created_at.isoformat(),
             "from_me": m.sender_id == user.id,
@@ -116,7 +126,9 @@ def list_conversations(user: User = Depends(get_current_user), db: Session = Dep
 
 
 @router.get("/with/{other_user_id}")
-def get_conversation(other_user_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_conversation(
+    other_user_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
     messages = (
         db.query(ChatMessage)
         .filter(
@@ -134,7 +146,8 @@ def get_conversation(other_user_id: int, user: User = Depends(get_current_user),
     # highlight clears. Safe to re-run on every 4s poll; it's a no-op once
     # everything's already marked.
     db.query(ChatMessage).filter(
-        ChatMessage.sender_id == other_user_id, ChatMessage.recipient_id == user.id,
+        ChatMessage.sender_id == other_user_id,
+        ChatMessage.recipient_id == user.id,
         ChatMessage.is_read.is_(False),
     ).update({"is_read": True})
     db.commit()
@@ -147,7 +160,12 @@ def get_conversation(other_user_id: int, user: User = Depends(get_current_user),
     return {
         "partner_typing": partner_typing,
         "messages": [
-            {"id": m.id, "sender_id": m.sender_id, "text": m.text, "created_at": m.created_at.isoformat()}
+            {
+                "id": m.id,
+                "sender_id": m.sender_id,
+                "text": m.text,
+                "created_at": m.created_at.isoformat(),
+            }
             for m in messages
         ],
     }

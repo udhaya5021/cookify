@@ -7,6 +7,7 @@ Free/zero-config by default: if no SMTP credentials are set in the environment,
 emails are printed to the console instead of actually sent, so the app runs
 with zero external setup. Set SMTP_* env vars to send real emails.
 """
+
 import os
 import smtplib
 from email.mime.text import MIMEText
@@ -68,19 +69,22 @@ def send_warning_email(to: str, reason: str, warning_count: int) -> None:
 # unconditional "NOTIFY Recipe Owner via Email" step — these three cover
 # that for the three respective actions.
 
+
 def send_new_comment_notification(to: str, commenter_username: str, recipe_title: str) -> None:
     send_email(
         to,
-        f"New comment on \"{recipe_title}\"",
-        f"{commenter_username} just commented on your recipe \"{recipe_title}\".",
+        f'New comment on "{recipe_title}"',
+        f'{commenter_username} just commented on your recipe "{recipe_title}".',
     )
 
 
-def send_new_rating_notification(to: str, rater_username: str, recipe_title: str, score: int) -> None:
+def send_new_rating_notification(
+    to: str, rater_username: str, recipe_title: str, score: int
+) -> None:
     send_email(
         to,
-        f"New rating on \"{recipe_title}\"",
-        f"{rater_username} rated your recipe \"{recipe_title}\" {score}/5.",
+        f'New rating on "{recipe_title}"',
+        f'{rater_username} rated your recipe "{recipe_title}" {score}/5.',
     )
 
 

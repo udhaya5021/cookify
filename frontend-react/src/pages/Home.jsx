@@ -13,11 +13,17 @@ export default function Home() {
           Discover, share, and rate recipes from home cooks.
         </p>
         {loggedIn ? (
-          <Link className="btn" to="/browse" style={{ display: "block" }}>Browse Recipes</Link>
+          <Link className="btn" to="/browse" style={{ display: "block" }}>
+            Browse Recipes
+          </Link>
         ) : (
           <>
-            <Link className="btn" to="/login" style={{ display: "block", marginBottom: 14 }}>Login</Link>
-            <Link className="btn secondary" to="/signup" style={{ display: "block" }}>Sign Up</Link>
+            <Link className="btn" to="/login" style={{ display: "block", marginBottom: 14 }}>
+              Login
+            </Link>
+            <Link className="btn secondary" to="/signup" style={{ display: "block" }}>
+              Sign Up
+            </Link>
           </>
         )}
       </div>

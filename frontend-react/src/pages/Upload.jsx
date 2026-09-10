@@ -5,8 +5,11 @@ import StarPicker from "../components/StarPicker";
 import { api, API_BASE, getToken } from "../api";
 
 const DIETARY_OPTIONS = [
-  ["vegetarian", "Vegetarian"], ["eggetarian", "Eggetarian"], ["pescetarian", "Pescetarian"],
-  ["jain", "Jain"], ["non_vegetarian", "Non-Vegetarian"],
+  ["vegetarian", "Vegetarian"],
+  ["eggetarian", "Eggetarian"],
+  ["pescetarian", "Pescetarian"],
+  ["jain", "Jain"],
+  ["non_vegetarian", "Non-Vegetarian"],
 ];
 
 export default function Upload() {
@@ -50,10 +53,19 @@ export default function Upload() {
   useEffect(() => {
     if (!editId) return;
     api(`/api/recipes/${editId}`).then((r) => {
-      setTitle(r.title); setIngredients(r.ingredients); setUtensils(r.utensils);
-      setSteps(r.steps); setCost(r.cost); setTime(r.cooking_time_minutes);
-      setCalories(r.calories); setProtein(r.protein); setDietaryTag(r.dietary_tag);
-      setFoodType(r.food_type); setRegion(r.region); setSpeed(r.speed); setDifficulty(r.difficulty);
+      setTitle(r.title);
+      setIngredients(r.ingredients);
+      setUtensils(r.utensils);
+      setSteps(r.steps);
+      setCost(r.cost);
+      setTime(r.cooking_time_minutes);
+      setCalories(r.calories);
+      setProtein(r.protein);
+      setDietaryTag(r.dietary_tag);
+      setFoodType(r.food_type);
+      setRegion(r.region);
+      setSpeed(r.speed);
+      setDifficulty(r.difficulty);
       if (r.media_url) setExistingMediaUrl(r.media_url);
     });
   }, [editId]);
@@ -99,27 +111,88 @@ export default function Upload() {
         <h1>{editId ? "Edit Recipe" : "Upload Recipe"}</h1>
         {alert && <div className="alert error">{alert}</div>}
         <form onSubmit={submit}>
-          <input type="text" placeholder="Recipe title" required value={title} onChange={(e) => setTitle(e.target.value)} />
-          <textarea rows={3} placeholder="Ingredients (comma-separated)" required value={ingredients} onChange={(e) => setIngredients(e.target.value)}></textarea>
-          <input type="text" placeholder="Required utensils/equipment" value={utensils} onChange={(e) => setUtensils(e.target.value)} />
-          <textarea rows={6} placeholder="Steps — one per line" required value={steps} onChange={(e) => setSteps(e.target.value)}></textarea>
+          <input
+            type="text"
+            placeholder="Recipe title"
+            required
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+          <textarea
+            rows={3}
+            placeholder="Ingredients (comma-separated)"
+            required
+            value={ingredients}
+            onChange={(e) => setIngredients(e.target.value)}
+          ></textarea>
+          <input
+            type="text"
+            placeholder="Required utensils/equipment"
+            value={utensils}
+            onChange={(e) => setUtensils(e.target.value)}
+          />
+          <textarea
+            rows={6}
+            placeholder="Steps — one per line"
+            required
+            value={steps}
+            onChange={(e) => setSteps(e.target.value)}
+          ></textarea>
 
           <div style={{ display: "flex", gap: 10 }}>
-            <input type="number" min="0" placeholder="Cost (₹)" value={cost} onChange={(e) => setCost(e.target.value)} />
-            <input type="number" min="0" placeholder="Cook time (min)" value={time} onChange={(e) => setTime(e.target.value)} />
+            <input
+              type="number"
+              min="0"
+              placeholder="Cost (₹)"
+              value={cost}
+              onChange={(e) => setCost(e.target.value)}
+            />
+            <input
+              type="number"
+              min="0"
+              placeholder="Cook time (min)"
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+            />
           </div>
           <div style={{ display: "flex", gap: 10 }}>
-            <input type="number" min="0" placeholder="Calories" value={calories} onChange={(e) => setCalories(e.target.value)} />
-            <input type="number" min="0" placeholder="Protein (g)" value={protein} onChange={(e) => setProtein(e.target.value)} />
+            <input
+              type="number"
+              min="0"
+              placeholder="Calories"
+              value={calories}
+              onChange={(e) => setCalories(e.target.value)}
+            />
+            <input
+              type="number"
+              min="0"
+              placeholder="Protein (g)"
+              value={protein}
+              onChange={(e) => setProtein(e.target.value)}
+            />
           </div>
 
           <select value={dietaryTag} onChange={(e) => setDietaryTag(e.target.value)}>
-            {DIETARY_OPTIONS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+            {DIETARY_OPTIONS.map(([v, label]) => (
+              <option key={v} value={v}>
+                {label}
+              </option>
+            ))}
           </select>
 
           <div style={{ display: "flex", gap: 10 }}>
-            <input type="text" placeholder="Food type (appetizer, bread, dessert...)" value={foodType} onChange={(e) => setFoodType(e.target.value)} />
-            <input type="text" placeholder="Cuisine (pan-Asian, English...)" value={region} onChange={(e) => setRegion(e.target.value)} />
+            <input
+              type="text"
+              placeholder="Food type (appetizer, bread, dessert...)"
+              value={foodType}
+              onChange={(e) => setFoodType(e.target.value)}
+            />
+            <input
+              type="text"
+              placeholder="Cuisine (pan-Asian, English...)"
+              value={region}
+              onChange={(e) => setRegion(e.target.value)}
+            />
           </div>
 
           <StarPicker label="Speed" value={Number(speed)} onChange={setSpeed} />
@@ -127,7 +200,10 @@ export default function Upload() {
 
           <div
             onClick={() => fileInputRef.current?.click()}
-            onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragActive(true);
+            }}
             onDragLeave={() => setDragActive(false)}
             onDrop={(e) => {
               e.preventDefault();
@@ -138,7 +214,10 @@ export default function Upload() {
               border: `2px dashed ${dragActive ? "var(--accent)" : "var(--border)"}`,
               borderRadius: 14,
               background: dragActive ? "#fdf1e2" : "#f6efe1",
-              padding: (mediaPreview || (existingMediaUrl && _IMAGE_EXT.some((ext) => existingMediaUrl.endsWith(ext)))) ? 0 : 28,
+              padding:
+                mediaPreview || (existingMediaUrl && _IMAGE_EXT.some((ext) => existingMediaUrl.endsWith(ext)))
+                  ? 0
+                  : 28,
               textAlign: "center",
               cursor: "pointer",
               marginBottom: 14,
@@ -146,18 +225,35 @@ export default function Upload() {
             }}
           >
             {mediaPreview ? (
-              <img src={mediaPreview} alt="Preview" style={{ width: "100%", maxHeight: 220, objectFit: "cover", display: "block" }} />
+              <img
+                src={mediaPreview}
+                alt="Preview"
+                style={{ width: "100%", maxHeight: 220, objectFit: "cover", display: "block" }}
+              />
             ) : media ? (
               <div style={{ color: "var(--text-muted)" }}>{media.name} selected</div>
             ) : existingMediaUrl && _IMAGE_EXT.some((ext) => existingMediaUrl.endsWith(ext)) ? (
-              <img src={`${API_BASE}${existingMediaUrl}`} alt="Current" style={{ width: "100%", maxHeight: 220, objectFit: "cover", display: "block" }} />
+              <img
+                src={`${API_BASE}${existingMediaUrl}`}
+                alt="Current"
+                style={{ width: "100%", maxHeight: 220, objectFit: "cover", display: "block" }}
+              />
             ) : existingMediaUrl ? (
-              <div style={{ color: "var(--text-muted)" }}>Current video attached — click or drop to replace</div>
+              <div style={{ color: "var(--text-muted)" }}>
+                Current video attached — click or drop to replace
+              </div>
             ) : (
-              <div style={{ color: "var(--text-muted)" }}>Drag and drop an image or video, or click to choose a file</div>
+              <div style={{ color: "var(--text-muted)" }}>
+                Drag and drop an image or video, or click to choose a file
+              </div>
             )}
-            <input ref={fileInputRef} type="file" accept="image/*,video/*" hidden
-              onChange={(e) => pickMedia(e.target.files[0])} />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,video/*"
+              hidden
+              onChange={(e) => pickMedia(e.target.files[0])}
+            />
           </div>
 
           <button className="btn" type="submit" style={{ width: "100%", marginTop: 14 }}>

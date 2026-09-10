@@ -1,9 +1,17 @@
-from app.models.user import User, UserPreference, RememberedDevice
-from app.models.recipe import Recipe, VegRecipe, NonVegRecipe
-from app.models.social import Rating, Comment, Subscription, ChatMessage, Warning, SavedRecipe
+from app.models.recipe import NonVegRecipe, Recipe, VegRecipe
+from app.models.social import ChatMessage, Comment, Rating, SavedRecipe, Subscription, Warning
+from app.models.user import RememberedDevice, User
 
 __all__ = [
-    "User", "UserPreference", "RememberedDevice",
-    "Recipe", "VegRecipe", "NonVegRecipe",
-    "Rating", "Comment", "Subscription", "ChatMessage", "Warning", "SavedRecipe",
+    "User",
+    "RememberedDevice",
+    "Recipe",
+    "VegRecipe",
+    "NonVegRecipe",
+    "Rating",
+    "Comment",
+    "Subscription",
+    "ChatMessage",
+    "Warning",
+    "SavedRecipe",
 ]

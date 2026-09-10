@@ -10,7 +10,12 @@ export function useConfirm() {
 
   const confirm = useCallback((message, opts = {}) => {
     return new Promise((resolve) => {
-      setState({ message, resolve, danger: !!opts.danger, confirmLabel: opts.confirmLabel || (opts.danger ? "Delete" : "Confirm") });
+      setState({
+        message,
+        resolve,
+        danger: !!opts.danger,
+        confirmLabel: opts.confirmLabel || (opts.danger ? "Delete" : "Confirm"),
+      });
     });
   }, []);
 
@@ -23,8 +28,14 @@ export function useConfirm() {
     <Modal title="Please confirm" onClose={() => close(false)}>
       <p style={{ marginBottom: 20 }}>{state.message}</p>
       <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-        <button type="button" className="btn small secondary" onClick={() => close(false)}>Cancel</button>
-        <button type="button" className={`btn small ${state.danger ? "danger" : ""}`} onClick={() => close(true)}>
+        <button type="button" className="btn small secondary" onClick={() => close(false)}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className={`btn small ${state.danger ? "danger" : ""}`}
+          onClick={() => close(true)}
+        >
           {state.confirmLabel}
         </button>
       </div>

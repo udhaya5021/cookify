@@ -1,9 +1,12 @@
 """Comments, ratings, subscriptions, chat, and warnings —
 matches the assignment's Recipe_Rating entity plus the written spec's
 comment/subscribe/chat/ban requirements not shown in the ER diagram."""
+
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Text
+
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
+
 from app.database import Base
 
 
@@ -34,6 +37,7 @@ class Comment(Base):
 
 class Subscription(Base):
     """Follow relationship — subscriber gets emailed when creator uploads."""
+
     __tablename__ = "subscriptions"
 
     id = Column(Integer, primary_key=True)
@@ -59,6 +63,7 @@ class ChatMessage(Base):
 class SavedRecipe(Base):
     """Profile Page wireframe shows both "Uploaded Recipes" and "Saved
     Recipes" as two distinct grids — this backs the latter (bookmarking)."""
+
     __tablename__ = "saved_recipes"
 
     id = Column(Integer, primary_key=True)
@@ -69,6 +74,7 @@ class SavedRecipe(Base):
 
 class Warning(Base):
     """Audit trail for the ban system — 3 warnings triggers a ban (test case 11)."""
+
     __tablename__ = "warnings"
 
     id = Column(Integer, primary_key=True)

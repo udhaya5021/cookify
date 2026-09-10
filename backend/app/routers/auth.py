@@ -1,26 +1,31 @@
 """Signup / login / 2FA / forgot-password — matches the assignment's
 Sign Up Method and Login Method pseudocode almost line for line."""
+
 import os
 import secrets
 from datetime import datetime, timedelta
 from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import User, RememberedDevice
-from app.services.security import (
-    hash_password, is_password_valid,
-    create_access_token, generate_device_token,
-)
+from app.models import RememberedDevice, User
 from app.services import totp_service
 from app.services.email_service import send_password_reset_email
+from app.services.security import (
+    create_access_token,
+    generate_device_token,
+    hash_password,
+    is_password_valid,
+)
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 _RESET_TOKEN_TTL = timedelta(minutes=30)
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+
 
 class SignupRequest(BaseModel):
     email: str
@@ -45,8 +50,11 @@ class VerifyOtpRequest(BaseModel):
 def signup(body: SignupRequest, db: Session = Depends(get_db)):
     try:
         user = User.register(
-            db, email=body.email, username=body.username,
-            password=body.password, phone_number=body.phone_number,
+            db,
+            email=body.email,
+            username=body.username,
+            password=body.password,
+            phone_number=body.phone_number,
         )
     except ValueError as err:
         raise HTTPException(400, str(err))
@@ -81,10 +89,14 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
 
     # Remembered device skips 2FA — matches "remember login details on devices"
     if body.device_token:
-        known = db.query(RememberedDevice).filter(
-            RememberedDevice.user_id == user.id,
-            RememberedDevice.device_token == body.device_token,
-        ).first()
+        known = (
+            db.query(RememberedDevice)
+            .filter(
+                RememberedDevice.user_id == user.id,
+                RememberedDevice.device_token == body.device_token,
+            )
+            .first()
+        )
         if known:
             return {"message": "Login Success", "access_token": create_access_token(user.id)}
 
@@ -94,7 +106,9 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
     if user.totp_confirmed:
         return {
             "message": "Enter the code from your authenticator app",
-            "requires_otp": True, "method": "totp", "email": user.email,
+            "requires_otp": True,
+            "method": "totp",
+            "email": user.email,
         }
 
     # No app enrolled yet — most likely signup was abandoned at the QR step.
@@ -176,7 +190,9 @@ def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)):
     if not user or not user.reset_token_expires or user.reset_token_expires < datetime.utcnow():
         raise HTTPException(400, "This reset link is invalid or has expired — request a new one")
     if not is_password_valid(body.new_password):
-        raise HTTPException(400, "Password must be at least 9 characters, no spaces or restricted symbols")
+        raise HTTPException(
+            400, "Password must be at least 9 characters, no spaces or restricted symbols"
+        )
 
     user.password_hash = hash_password(body.new_password)
     user.reset_token = ""

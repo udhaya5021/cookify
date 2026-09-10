@@ -1,10 +1,13 @@
 """User model — matches the assignment's User + User_Preference entities."""
+
 import re
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, func, LargeBinary
+
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, LargeBinary, String, func
 from sqlalchemy.orm import relationship
+
 from app.database import Base
-from app.services.security import hash_password, verify_password, is_password_valid
+from app.services.security import hash_password, is_password_valid, verify_password
 
 
 def _valid_email(email: str) -> bool:
@@ -17,14 +20,16 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
     username = Column(String, unique=True, index=True, nullable=False)
-    phone_number = Column(String, default="")  # Sign Up Method pseudocode: INPUT UserID, Email, PhoneNumber
+    phone_number = Column(
+        String, default=""
+    )  # Sign Up Method pseudocode: INPUT UserID, Email, PhoneNumber
     password_hash = Column(String, nullable=False)
     first_name = Column(String, default="")
     last_name = Column(String, default="")
     age = Column(Integer, nullable=True)
     gender = Column(String, default="")
     bio = Column(String, default="")
-    profile_picture_url = Column(String, default="")   # points at GET /api/users/{id}/avatar
+    profile_picture_url = Column(String, default="")  # points at GET /api/users/{id}/avatar
     profile_picture_data = Column(LargeBinary, nullable=True)  # actual bytes, stored in Postgres
     profile_picture_content_type = Column(String, default="")
 
@@ -47,7 +52,6 @@ class User(Base):
 
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    preference = relationship("UserPreference", back_populates="user", uselist=False)
     recipes = relationship("Recipe", back_populates="creator")
 
     def has_reached_ban_threshold(self) -> bool:
@@ -81,15 +85,17 @@ class User(Base):
         if not _valid_email(email):
             raise ValueError("Invalid email format")
         if not is_password_valid(password):
-            raise ValueError("Password must be at least 9 characters, no spaces or restricted symbols")
+            raise ValueError(
+                "Password must be at least 9 characters, no spaces or restricted symbols"
+            )
 
         user = cls(
-            email=email, username=username, phone_number=(phone_number or "").strip(),
+            email=email,
+            username=username,
+            phone_number=(phone_number or "").strip(),
             password_hash=hash_password(password),
         )
         db.add(user)
-        db.flush()
-        db.add(UserPreference(user_id=user.id))
         db.commit()
         db.refresh(user)
         return user
@@ -143,9 +149,11 @@ class User(Base):
         re-rating updates the existing score. Returns the new average."""
         from app.models.social import Rating  # local: avoids a model import cycle
 
-        existing = db.query(Rating).filter(
-            Rating.recipe_id == recipe.id, Rating.user_id == self.id
-        ).first()
+        existing = (
+            db.query(Rating)
+            .filter(Rating.recipe_id == recipe.id, Rating.user_id == self.id)
+            .first()
+        )
         if existing:
             existing.score = score
         else:
@@ -155,23 +163,10 @@ class User(Base):
         return recipe.average_rating
 
 
-class UserPreference(Base):
-    """Matches the assignment's User_Preference entity — dietary defaults used to
-    personalize search results (e.g. default veg-only filter)."""
-    __tablename__ = "user_preferences"
-
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
-    veg_only = Column(Boolean, default=False)
-    target_calories = Column(Integer, nullable=True)
-    target_protein = Column(Integer, nullable=True)
-
-    user = relationship("User", back_populates="preference")
-
-
 class RememberedDevice(Base):
     """Lets login skip 2FA on a device the user previously verified —
     matches "remember login details on devices" in the spec."""
+
     __tablename__ = "remembered_devices"
 
     id = Column(Integer, primary_key=True)

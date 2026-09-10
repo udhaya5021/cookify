@@ -34,19 +34,35 @@ export default function ResetPassword() {
         {alert && <div className={`alert ${alert.type}`}>{alert.text}</div>}
         {!token ? (
           <p className="meta">
-            This link is missing its reset token. Use the link from the email you were sent,
-            or <Link to="/forgot-password">request a new one</Link>.
+            This link is missing its reset token. Use the link from the email you were sent, or{" "}
+            <Link to="/forgot-password">request a new one</Link>.
           </p>
         ) : (
           <form onSubmit={submit}>
-            <input type="password" placeholder="New password (9+ chars, no spaces)" required minLength={9}
-              value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
-            <input type="password" placeholder="Confirm new password" required minLength={9}
-              value={confirm} onChange={(e) => setConfirm(e.target.value)} />
-            <button className="btn" type="submit" style={{ width: "100%" }}>Confirm New Password</button>
+            <input
+              type="password"
+              placeholder="New password (9+ chars, no spaces)"
+              required
+              minLength={9}
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+            />
+            <input
+              type="password"
+              placeholder="Confirm new password"
+              required
+              minLength={9}
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+            />
+            <button className="btn" type="submit" style={{ width: "100%" }}>
+              Confirm New Password
+            </button>
           </form>
         )}
-        <p className="form-note"><Link to="/login">Back to Login</Link></p>
+        <p className="form-note">
+          <Link to="/login">Back to Login</Link>
+        </p>
       </div>
     </Layout>
   );
