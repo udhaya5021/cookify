@@ -456,6 +456,72 @@ textarea {
   gap: 22px;
   margin: 28px 0;
 }
+
+/* Wireframe: Uploaded/Saved Recipes as horizontal scrollable rows with
+   "Slider Wheel Arrows" either side, rather than a wrapping grid. */
+.recipe-scroll-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 20px 0;
+}
+.recipe-scroll-row {
+  display: flex;
+  gap: 18px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  flex: 1;
+  padding-bottom: 4px;
+}
+.recipe-scroll-row::-webkit-scrollbar {
+  display: none;
+}
+.recipe-scroll-row .recipe-card {
+  flex: 0 0 230px;
+  width: 230px;
+}
+.scroll-arrow {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  background: #fff;
+  color: var(--accent-dark);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background 0.15s var(--ease),
+    border-color 0.15s var(--ease);
+}
+.scroll-arrow:hover {
+  background: var(--accent-light);
+  border-color: var(--accent);
+}
+.scroll-arrow:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  background: #fff;
+  border-color: var(--border);
+}
+
+.card-comment-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 2px 0;
+}
+.recipe-card.saved .card-comment-badge {
+  color: #f0ddd0;
+}
 .recipe-card {
   background: #fdf0e7;
   border-radius: 20px;
@@ -913,38 +979,6 @@ footer a:hover {
   margin-bottom: 18px;
 }
 
-.profile-tabs {
-  display: flex;
-  gap: 4px;
-  margin: 28px 0 18px;
-  border-bottom: 1px solid var(--border);
-}
-.profile-tab {
-  background: none;
-  border: none;
-  font: inherit;
-  font-weight: 700;
-  font-size: 15px;
-  padding: 10px 4px;
-  margin-right: 24px;
-  color: var(--text-muted);
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
-  transition:
-    color 0.15s var(--ease),
-    border-color 0.15s var(--ease);
-}
-.profile-tab:hover {
-  color: var(--text);
-}
-.profile-tab.active {
-  color: var(--accent-dark);
-  border-bottom-color: var(--accent);
-}
-.profile-tab .count {
-  color: var(--text-muted);
-  font-weight: 600;
-}
 
 /* Follower / following counts are buttons that reveal the actual names —
    a bare number with no way to see who is behind it isn't much use. */

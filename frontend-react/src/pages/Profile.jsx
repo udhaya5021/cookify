@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
 import PageLoading from "../components/PageLoading";
@@ -7,6 +7,44 @@ import Avatar from "../components/Avatar";
 import { useConfirm } from "../hooks/useConfirm";
 import { useToast } from "../hooks/useToast";
 import { api, API_BASE, requireAuthOrAlert, getMyUserId } from "../authGuard";
+
+// Wireframe: "Slider Wheel Arrows" scroll the Uploaded/Saved rows by roughly
+// one card-and-gap at a time rather than jumping the full row width.
+function scrollByCards(ref, direction) {
+  ref.current?.scrollBy({ left: direction * 250, behavior: "smooth" });
+}
+
+// Shared by both the Uploaded and Saved rows — same card, just the "Saved"
+// (inverted colour scheme) styling and the veg/non-veg badge only apply to
+// recipes you actually own, not ones you've merely saved from someone else.
+function renderRecipeCard(r, { saved }) {
+  return (
+    <div key={r.id} className={`recipe-card ${!saved && r.recipe_type === "veg" ? "veg" : ""} ${saved ? "saved" : ""}`}>
+      <div className="media-wrap">
+        <Avatar
+          src={r.media_url}
+          label={r.title}
+          className="thumb"
+          emptyClassName="thumb-placeholder"
+          isVideo={r.media_content_type?.startsWith("video/")}
+        />
+        {!saved && (
+          <span className={`badge ${r.recipe_type === "veg" ? "veg" : "nonveg"}`}>
+            {r.recipe_type === "veg" ? "Veg" : "Non-Veg"}
+          </span>
+        )}
+      </div>
+      <div className="card-body">
+        <div className="title">{r.title}</div>
+        <div className="card-comment-badge">💬 {r.comment_count}</div>
+        <StarRating average={r.average_rating} count={r.rating_count} />
+        <Link className={`btn small ${saved ? "secondary" : ""}`} to={`/recipe/${r.id}`}>
+          Open recipe
+        </Link>
+      </div>
+    </div>
+  );
+}
 
 export default function Profile() {
   const { id } = useParams();
@@ -21,7 +59,8 @@ export default function Profile() {
   const [pfp, setPfp] = useState(null);
   const [pfpPreview, setPfpPreview] = useState(null);
   const [editing, setEditing] = useState(false);
-  const [recipeTab, setRecipeTab] = useState("uploaded"); // "uploaded" | "saved"
+  const uploadedScrollRef = useRef(null);
+  const savedScrollRef = useRef(null);
   const [connections, setConnections] = useState(null); // { kind, users } | null
   const [totpConfirmed, setTotpConfirmed] = useState(false);
   const [totpSetup, setTotpSetup] = useState(null); // { qr_svg, secret }
@@ -96,7 +135,8 @@ export default function Profile() {
     // setup) stuck on screen, now showing stale data over the new profile.
     setConnections(null);
     setEditing(false);
-    setRecipeTab("uploaded");
+    if (uploadedScrollRef.current) uploadedScrollRef.current.scrollLeft = 0;
+    if (savedScrollRef.current) savedScrollRef.current.scrollLeft = 0;
     setTotpSetup(null);
     setTotpCode("");
     setTotpMsg(null);
@@ -330,62 +370,60 @@ export default function Profile() {
           </div>
         )}
 
-        <div className="profile-tabs">
-          <button
-            type="button"
-            className={`profile-tab ${recipeTab === "uploaded" ? "active" : ""}`}
-            onClick={() => setRecipeTab("uploaded")}
-          >
-            Uploaded <span className="count">({profile.uploaded_recipes.length})</span>
-          </button>
-          <button
-            type="button"
-            className={`profile-tab ${recipeTab === "saved" ? "active" : ""}`}
-            onClick={() => setRecipeTab("saved")}
-          >
-            Saved <span className="count">({profile.saved_recipes.length})</span>
-          </button>
-        </div>
-
-        <div className="recipe-grid">
-          {(recipeTab === "uploaded" ? profile.uploaded_recipes : profile.saved_recipes).length === 0 ? (
-            <div className="empty-state">
-              {recipeTab === "uploaded" ? "No recipes uploaded yet." : "No saved recipes yet."}
+        <h2 style={{ margin: "20px 0 10px" }}>Uploaded Recipes</h2>
+        {profile.uploaded_recipes.length === 0 ? (
+          <div className="empty-state">No recipes uploaded yet.</div>
+        ) : (
+          <div className="recipe-scroll-section">
+            <button
+              type="button"
+              className="scroll-arrow"
+              aria-label="Scroll uploaded recipes left"
+              onClick={() => scrollByCards(uploadedScrollRef, -1)}
+            >
+              ‹
+            </button>
+            <div className="recipe-scroll-row" ref={uploadedScrollRef}>
+              {profile.uploaded_recipes.map((r) => renderRecipeCard(r, { saved: false }))}
             </div>
-          ) : (
-            (recipeTab === "uploaded" ? profile.uploaded_recipes : profile.saved_recipes).map((r) => (
-              <div
-                key={r.id}
-                className={`recipe-card ${recipeTab === "uploaded" && r.recipe_type === "veg" ? "veg" : ""} ${recipeTab === "saved" ? "saved" : ""}`}
-              >
-                <div className="media-wrap">
-                  <Avatar
-                    src={r.media_url}
-                    label={r.title}
-                    className="thumb"
-                    emptyClassName="thumb-placeholder"
-                    isVideo={r.media_content_type?.startsWith("video/")}
-                  />
-                  {recipeTab === "uploaded" && (
-                    <span className={`badge ${r.recipe_type === "veg" ? "veg" : "nonveg"}`}>
-                      {r.recipe_type === "veg" ? "Veg" : "Non-Veg"}
-                    </span>
-                  )}
-                </div>
-                <div className="card-body">
-                  <div className="title">{r.title}</div>
-                  <StarRating average={r.average_rating} count={r.rating_count} />
-                  <Link
-                    className={`btn small ${recipeTab === "saved" ? "secondary" : ""}`}
-                    to={`/recipe/${r.id}`}
-                  >
-                    Open recipe
-                  </Link>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+            <button
+              type="button"
+              className="scroll-arrow"
+              aria-label="Scroll uploaded recipes right"
+              onClick={() => scrollByCards(uploadedScrollRef, 1)}
+            >
+              ›
+            </button>
+          </div>
+        )}
+
+        {/* Wireframe callout: "Inverted Yellow Brown Colour Scheme" for Saved Recipes */}
+        <h2 style={{ margin: "20px 0 10px" }}>Saved Recipes</h2>
+        {profile.saved_recipes.length === 0 ? (
+          <div className="empty-state">No saved recipes yet.</div>
+        ) : (
+          <div className="recipe-scroll-section">
+            <button
+              type="button"
+              className="scroll-arrow"
+              aria-label="Scroll saved recipes left"
+              onClick={() => scrollByCards(savedScrollRef, -1)}
+            >
+              ‹
+            </button>
+            <div className="recipe-scroll-row" ref={savedScrollRef}>
+              {profile.saved_recipes.map((r) => renderRecipeCard(r, { saved: true }))}
+            </div>
+            <button
+              type="button"
+              className="scroll-arrow"
+              aria-label="Scroll saved recipes right"
+              onClick={() => scrollByCards(savedScrollRef, 1)}
+            >
+              ›
+            </button>
+          </div>
+        )}
       </div>
 
       {confirmModal}

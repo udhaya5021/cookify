@@ -57,6 +57,7 @@ def _serialize(
         "creator_bio": r.creator.bio if r.creator else None,
         "average_rating": r.average_rating,
         "rating_count": len(r.ratings),
+        "comment_count": len(r.comments),
     }
 
 
