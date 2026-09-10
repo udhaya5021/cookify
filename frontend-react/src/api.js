@@ -36,6 +36,16 @@ export async function api(path, { method = "GET", body, form, auth = false } = {
   const res = await fetch(`${API_BASE}${path}`, { method, headers, body: payload });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
+    if (auth && res.status === 401) {
+      // The bearer token we sent was rejected — expired, or invalidated by a
+      // server-side secret rotation. Without this, getToken() keeps returning
+      // the dead token, so the app still *looks* logged in (nav shows
+      // Upload/Messages/Profile) while every real request 401s silently.
+      clearToken();
+      if (!window.location.pathname.startsWith("/login")) {
+        window.location.href = "/login";
+      }
+    }
     throw new Error(data.detail || "Something went wrong");
   }
   return data;
