@@ -1,4 +1,5 @@
 """Password hashing, JWT session tokens, and OTP generation."""
+from typing import Optional
 import random
 import string
 from datetime import datetime, timedelta
@@ -34,7 +35,7 @@ def create_access_token(user_id: int) -> str:
     return jwt.encode({"sub": str(user_id), "exp": expire}, SECRET_KEY, algorithm=ALGORITHM)
 
 
-def decode_access_token(token: str) -> int | None:
+def decode_access_token(token: str) -> Optional[int]:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return int(payload["sub"])

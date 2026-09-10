@@ -1,5 +1,6 @@
 """Recipe upload, search/filter, and view — matches the assignment's
 Recipe Upload Method and Recipe Search Method pseudocode."""
+from typing import Optional
 import os
 import shutil
 import uuid
@@ -61,7 +62,7 @@ async def upload_recipe(
     dietary_tag: str = Form("vegetarian"),
     food_type: str = Form(""),
     region: str = Form(""),
-    media: UploadFile | None = File(None),
+    media: Optional[UploadFile] = File(None),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -104,12 +105,12 @@ def search_recipes(
     q: str = "",
     ingredient: str = "",
     utensil: str = "",
-    max_cost: float | None = None,
-    max_time: int | None = None,
-    max_calories: int | None = None,
-    min_speed: float | None = None,
-    min_difficulty: float | None = None,
-    min_rating: float | None = None,  # Recipe Search Method pseudocode: "Filter by Rating or Tags"
+    max_cost: Optional[float] = None,
+    max_time: Optional[int] = None,
+    max_calories: Optional[int] = None,
+    min_speed: Optional[float] = None,
+    min_difficulty: Optional[float] = None,
+    min_rating: Optional[float] = None,  # Recipe Search Method pseudocode: "Filter by Rating or Tags"
     dietary_tag: str = "",
     food_type: str = "",
     region: str = "",
@@ -153,7 +154,7 @@ async def edit_recipe(
     dietary_tag: str = Form("vegetarian"),
     food_type: str = Form(""),
     region: str = Form(""),
-    media: UploadFile | None = File(None),
+    media: Optional[UploadFile] = File(None),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):

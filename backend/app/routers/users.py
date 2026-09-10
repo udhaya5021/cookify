@@ -1,5 +1,6 @@
 """Profile view/edit — matches the assignment's Profile Page wireframe
 (profile picture, username, bio, uploaded recipes)."""
+from typing import Optional
 import os
 import shutil
 import uuid
@@ -87,9 +88,9 @@ async def update_profile(
     bio: str = Form(""),
     first_name: str = Form(""),
     last_name: str = Form(""),
-    age: int | None = Form(None),
-    two_fa_enabled: bool | None = Form(None),
-    profile_picture: UploadFile | None = File(None),
+    age: Optional[int] = Form(None),
+    two_fa_enabled: Optional[bool] = Form(None),
+    profile_picture: Optional[UploadFile] = File(None),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):

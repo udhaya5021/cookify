@@ -49,6 +49,14 @@ Then open **http://localhost:8000/**. The SQLite database (`cookify.db`) is crea
 
 The React app uses `BrowserRouter` for clean URLs (`/browse`, not `/#/browse`). The backend has a catch-all route that serves a real static file when one exists at that path (JS/CSS/assets) and falls back to `index.html` otherwise, so direct navigation and refreshes on any client-side route resolve correctly instead of 404ing. The API client calls same-origin relative paths, so this also works unchanged behind any real domain/port in production.
 
+Runs on **Python 3.9+** (verified against the stock macOS 3.9 as well as 3.13), and needs no configuration at all — the two sections below are optional upgrades.
+
+**Database:** defaults to a local SQLite file. Set `DATABASE_URL` in `backend/.env` to point at Postgres instead:
+```
+DATABASE_URL="postgresql://user:password@host/dbname?sslmode=require"
+```
+Nothing else changes — SQLAlchemy handles the dialect, and `migrate_to_postgres.py` copies an existing SQLite database across (it also resets the id sequences, which Postgres doesn't advance for explicit-id inserts).
+
 **Email:** set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_FROM` in `backend/.env` (gitignored) to send real emails — 2FA OTPs, comment/rating/subscription notifications, and ban warnings. Without them, `email_service.py` falls back to printing to the console so the app still runs with zero external setup.
 
 ## Design notes / honest tradeoffs

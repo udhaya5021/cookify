@@ -1,5 +1,6 @@
 """Signup / login / 2FA / forgot-password — matches the assignment's
 Sign Up Method and Login Method pseudocode almost line for line."""
+from typing import Optional
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -32,7 +33,7 @@ class SignupRequest(BaseModel):
 class LoginRequest(BaseModel):
     identifier: str  # username or email
     password: str
-    device_token: str | None = None
+    device_token: Optional[str] = None
 
 
 class VerifyOtpRequest(BaseModel):
