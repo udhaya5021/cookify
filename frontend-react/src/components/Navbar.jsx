@@ -24,27 +24,38 @@ function loadGoogleTranslate() {
 }
 
 // On switching language, Google's own script (not just its initial markup)
-// injects a full-width banner iframe and pushes <body> down by setting an
-// inline style — and it re-applies both after the page has already loaded,
-// which is why a CSS `!important` override alone doesn't stick: an inline
-// style set later by JS wins over any external stylesheet rule regardless.
-// This watches for exactly those two mutations and undoes them the moment
-// Google's script makes them.
+// injects a full-width banner iframe and pushes the page down by setting an
+// inline style on <body> or <html> — and it does this after the page has
+// already loaded, sometimes more than once, which is why a CSS `!important`
+// override alone doesn't stick: a later inline-style write from JS wins
+// over any external stylesheet rule regardless.
+//
+// This app has no iframes of its own, so it's safe to be blunt: force out
+// *any* iframe that looks like Google's (exact class names have shifted
+// across widget versions, hence the src-based fallback too), and force the
+// page's vertical offset back to 0 — both a MutationObserver (reacts
+// immediately to the actual DOM change) and a standing interval (catches
+// anything the observer's specific watch list misses, since Google's script
+// isn't necessarily triggering the exact mutation types we're listening for).
 function suppressGoogleTranslateBanner() {
   function enforce() {
-    const banner = document.querySelector("iframe.goog-te-banner-frame");
-    if (banner && banner.style.display !== "none") {
-      banner.style.display = "none";
-    }
-    if (document.body.style.top && document.body.style.top !== "0px") {
-      document.body.style.top = "0px";
+    document
+      .querySelectorAll('iframe.goog-te-banner-frame, iframe[src*="translate.google"]')
+      .forEach((el) => {
+        el.style.setProperty("display", "none", "important");
+        el.style.setProperty("visibility", "hidden", "important");
+        el.style.setProperty("height", "0", "important");
+      });
+    for (const el of [document.body, document.documentElement]) {
+      el.style.setProperty("top", "0px", "important");
     }
   }
   enforce();
   const observer = new MutationObserver(enforce);
-  observer.observe(document.body, { attributes: true, attributeFilter: ["style"] });
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["style"] });
+  observer.observe(document.body, { attributes: true, attributeFilter: ["style"], childList: true });
   observer.observe(document.documentElement, { childList: true });
-  observer.observe(document.body, { childList: true });
+  setInterval(enforce, 500);
 }
 
 export default function Navbar() {
