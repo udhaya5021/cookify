@@ -481,6 +481,15 @@ textarea {
   flex: 0 0 230px;
   width: 230px;
 }
+/* Wireframe: Uploaded Recipes are one flat tan colour, not the veg/non-veg
+   green tint recipe cards get elsewhere (Browse, recipe detail) — only
+   Saved keeps the inverted brown scheme the wireframe calls out. */
+.recipe-scroll-row .recipe-card.veg {
+  background: #fdf0e7;
+}
+.recipe-scroll-row .recipe-card.veg .thumb-placeholder {
+  background: linear-gradient(135deg, #f0a04b, #c46f24);
+}
 .scroll-arrow {
   flex-shrink: 0;
   width: 36px;
