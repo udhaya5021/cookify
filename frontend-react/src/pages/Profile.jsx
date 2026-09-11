@@ -188,6 +188,8 @@ export default function Profile() {
 
   if (!profile) return <PageLoading />;
 
+  const fullName = [profile.first_name, profile.last_name].filter(Boolean).join(" ");
+
   return (
     <Layout>
       <div className="container">
@@ -203,14 +205,15 @@ export default function Profile() {
                 className="profile-avatar"
                 emptyClassName="profile-avatar-empty"
               />
-              <h1>{profile.username}</h1>
-              {(profile.first_name || profile.last_name || profile.age) && (
-                <div className="profile-realname">
-                  {[profile.first_name, profile.last_name].filter(Boolean).join(" ")}
-                  {profile.age
-                    ? `${profile.first_name || profile.last_name ? " · " : ""}Age ${profile.age}`
-                    : ""}
-                </div>
+              {/* Wireframe order: Full Name, then Username — a display name
+                  reads as the person's identity, with the handle secondary. */}
+              {fullName ? (
+                <>
+                  <h1>{fullName}</h1>
+                  <div className="profile-realname">@{profile.username}</div>
+                </>
+              ) : (
+                <h1>{profile.username}</h1>
               )}
 
               <div className="profile-stats-list">
@@ -223,6 +226,12 @@ export default function Profile() {
                 <button type="button" className="stat-btn profile-stat-row" onClick={() => toggleConnections("following")}>
                   <strong>{profile.following}</strong> following
                 </button>
+                {/* Wireframe lists Age as the last row of the info block. */}
+                {profile.age != null && (
+                  <div className="profile-stat-row">
+                    <strong>{profile.age}</strong> years old
+                  </div>
+                )}
               </div>
 
               {connections && (
