@@ -32,22 +32,18 @@ class User(Base):
     profile_picture_data = Column(LargeBinary, nullable=True)  # actual bytes, stored in Postgres
     profile_picture_content_type = Column(String, default="")
 
-    # 2FA is an authenticator app (TOTP) for every account — there is no
-    # second method and no opt-out, so there is no flag encoding a choice.
-    # The secret is issued at signup but only trusted once the user proves
-    # they can generate a code from it, which is what totp_confirmed records.
-    totp_secret = Column(String, default="")
-    totp_confirmed = Column(Boolean, default=False)
+    # Login Method pseudocode: "User is emailed a 6 digit code" — generated
+    # fresh at each login (see routers/auth.py), single-use, short-lived.
+    # Forgot-password reuses this same pair rather than a second set of
+    # columns; pending_password_hash holds the new password until that code
+    # is confirmed, proving inbox ownership before it's actually applied.
+    otp_code = Column(String, default="")
+    otp_expires = Column(DateTime, nullable=True)
+    pending_password_hash = Column(String, default="")
 
     # Ban system — "banned after 3 warnings" (test case 11)
     warning_count = Column(Integer, default=0)
     is_banned = Column(Boolean, default=False)
-
-    # Forgot-password: a random, single-use, time-limited token — proves the
-    # requester controls the account's inbox before any password changes,
-    # rather than trusting "I know the username" alone.
-    reset_token = Column(String, default="")
-    reset_token_expires = Column(DateTime, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -62,8 +58,10 @@ class User(Base):
     # the routers translate that into HTTP status codes.
 
     @classmethod
-    def register(cls, db, *, email, username, password, phone_number=""):
-        """Sign Up Method pseudocode, start to finish."""
+    def validate_signup_fields(cls, db, *, email, username, password):
+        """Sign Up Method pseudocode's checks, without creating anything —
+        shared by direct registration and the emailed-OTP staging flow.
+        Returns the normalized (username, email). Raises ValueError."""
         username = (username or "").strip()
         email = (email or "").strip()
 
@@ -87,7 +85,14 @@ class User(Base):
             raise ValueError(
                 "Password must be at least 9 characters, no spaces or restricted symbols"
             )
+        return username, email
 
+    @classmethod
+    def register(cls, db, *, email, username, password, phone_number=""):
+        """Sign Up Method pseudocode, start to finish."""
+        username, email = cls.validate_signup_fields(
+            db, email=email, username=username, password=password
+        )
         user = cls(
             email=email,
             username=username,
@@ -171,4 +176,23 @@ class RememberedDevice(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     device_token = Column(String, unique=True, index=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class PendingSignup(Base):
+    """A signup that has passed validation but not yet proven its emailed
+    OTP. Kept separate from `users` so an abandoned signup never leaves a
+    half-created account sitting in the real table — the row here is
+    deleted once verified (and the real User is created) or just
+    overwritten by a retry."""
+
+    __tablename__ = "pending_signups"
+
+    id = Column(Integer, primary_key=True)
+    email = Column(String, unique=True, index=True, nullable=False)
+    username = Column(String, nullable=False)
+    phone_number = Column(String, default="")
+    password_hash = Column(String, nullable=False)
+    otp_code = Column(String, nullable=False)
+    otp_expires = Column(DateTime, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)

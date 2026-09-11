@@ -106,6 +106,17 @@ select:focus-visible {
   top: 0;
   z-index: 20;
 }
+/* Wireframe: on Login/Signup/Forgot-Password/Reset-Password/Home, the logo
+   sits directly on the page's own cream background, snug in the top-left
+   corner — no separating white bar, blur, border, or sticky behaviour. */
+.navbar-minimal {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-bottom: none;
+  position: static;
+  padding: 16px 20px;
+}
 .navbar .logo {
   font-family: var(--font-display);
   font-size: 24px;
@@ -1522,50 +1533,3 @@ footer a:hover {
   margin-left: 12px;
 }
 
-/* ── TOTP (authenticator app) enrolment ─────────────────────────────── */
-.totp-box {
-  background: #f8f2e6;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 20px;
-  margin-bottom: 18px;
-  text-align: center;
-}
-.totp-box .meta {
-  text-align: center;
-}
-.totp-qr {
-  background: #fff;
-  padding: 14px;
-  border-radius: 12px;
-  width: 200px;
-  margin: 10px auto 14px;
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-sm);
-}
-.totp-qr svg {
-  width: 100%;
-  height: auto;
-  display: block;
-}
-.totp-secret {
-  display: inline-block;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 13px;
-  letter-spacing: 0.08em;
-  word-break: break-all;
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 12px;
-  margin: 6px 0 4px;
-}
-.totp-box form {
-  margin-top: 16px;
-  text-align: left;
-}
-.totp-box form input {
-  text-align: center;
-  letter-spacing: 0.3em;
-  font-size: 18px;
-}

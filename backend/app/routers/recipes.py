@@ -226,9 +226,7 @@ def get_recipe(
         .first()
     )
     existing_rating = (
-        db.query(Rating)
-        .filter(Rating.recipe_id == recipe_id, Rating.user_id == viewer.id)
-        .first()
+        db.query(Rating).filter(Rating.recipe_id == recipe_id, Rating.user_id == viewer.id).first()
         if viewer
         else None
     )

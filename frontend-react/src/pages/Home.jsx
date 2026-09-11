@@ -6,7 +6,7 @@ export default function Home() {
   const loggedIn = !!getToken();
 
   return (
-    <Layout>
+    <Layout minimal={!loggedIn}>
       <div className="form-card" style={{ textAlign: "center" }}>
         <h1>Welcome to Cookify</h1>
         <p style={{ color: "var(--text-muted)", marginBottom: 24 }}>

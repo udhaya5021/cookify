@@ -1,7 +1,5 @@
-"""Email sending — subscription notifications, comment/rating alerts, and ban warnings.
-
-Login codes are not sent by email: the second factor is an authenticator app
-(see services/totp_service.py), so nothing here is on the login path.
+"""Email sending — login OTP codes, subscription notifications, comment/rating
+alerts, and ban warnings.
 
 Free/zero-config by default: if no SMTP credentials are set in the environment,
 emails are printed to the console instead of actually sent, so the app runs
@@ -88,14 +86,23 @@ def send_new_rating_notification(
     )
 
 
-def send_password_reset_email(to: str, reset_link: str) -> None:
+def send_login_otp_email(to: str, code: str) -> None:
     send_email(
         to,
-        "Reset your Cookify password",
+        "Your Cookify login code",
+        f"Your 6-digit login code is: {code}\n\n"
+        f"This code expires in 10 minutes. If you didn't try to log in, you can ignore this email.",
+    )
+
+
+def send_password_reset_otp_email(to: str, code: str) -> None:
+    send_email(
+        to,
+        "Your Cookify password reset code",
         f"Someone (hopefully you) asked to reset the password on this account.\n\n"
-        f"Reset it here: {reset_link}\n\n"
-        f"This link works once and expires in 30 minutes. If you didn't request "
-        f"this, you can ignore it — your password won't change.",
+        f"Your 6-digit code is: {code}\n\n"
+        f"This code expires in 10 minutes. If you didn't request this, you can ignore "
+        f"it — your password won't change.",
     )
 
 

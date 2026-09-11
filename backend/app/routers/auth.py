@@ -1,28 +1,24 @@
 """Signup / login / 2FA / forgot-password — matches the assignment's
 Sign Up Method and Login Method pseudocode almost line for line."""
 
-import os
 import secrets
 from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import RememberedDevice, User
-from app.services import totp_service
-from app.services.email_service import send_password_reset_email
+from app.models import PendingSignup, RememberedDevice, User
+from app.services.email_service import send_login_otp_email, send_password_reset_otp_email
 from app.services.security import (
     create_access_token,
     generate_device_token,
     hash_password,
     is_password_valid,
 )
-
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
-_RESET_TOKEN_TTL = timedelta(minutes=30)
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -46,35 +42,81 @@ class VerifyOtpRequest(BaseModel):
     remember_device: bool = False
 
 
+class VerifySignupOtpRequest(BaseModel):
+    email: str
+    otp: str
+
+
 @router.post("/signup")
 def signup(body: SignupRequest, db: Session = Depends(get_db)):
+    """Sign Up wireframe's "already in use" state also shows a 2FA OTP
+    field, so a fresh signup goes through the same emailed-code check as
+    login before the account actually exists — the account is only
+    created once /verify-signup-otp confirms it (see PendingSignup)."""
     try:
-        user = User.register(
-            db,
-            email=body.email,
-            username=body.username,
-            password=body.password,
-            phone_number=body.phone_number,
+        username, email = User.validate_signup_fields(
+            db, email=body.email, username=body.username, password=body.password
         )
     except ValueError as err:
         raise HTTPException(400, str(err))
 
-    # Issue the authenticator secret straight away so the signup page can show
-    # the QR as its second step. It isn't trusted until the user submits a
-    # working code (POST /api/users/me/2fa/totp/confirm); if they abandon the
-    # QR screen, their next login re-offers enrolment rather than refusing.
-    secret = totp_service.new_secret()
-    user.totp_secret = secret
-    user.totp_confirmed = False
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    pending = db.query(PendingSignup).filter(PendingSignup.email == email).first()
+    if not pending:
+        pending = PendingSignup(email=email)
+        db.add(pending)
+    pending.username = username
+    pending.phone_number = (body.phone_number or "").strip()
+    pending.password_hash = hash_password(body.password)
+    pending.otp_code = code
+    pending.otp_expires = datetime.utcnow() + timedelta(minutes=10)
     db.commit()
+    send_login_otp_email(email, code)
 
-    uri = totp_service.provisioning_uri(secret, user.username)
-    token = create_access_token(user.id)
+    return {
+        "message": "We've emailed a 6-digit code to your registered email",
+        "requires_otp": True,
+        "email": email,
+    }
+
+
+@router.post("/verify-signup-otp")
+def verify_signup_otp(body: VerifySignupOtpRequest, db: Session = Depends(get_db)):
+    pending = db.query(PendingSignup).filter(PendingSignup.email == body.email).first()
+    if not pending:
+        raise HTTPException(404, "No signup in progress for this email — start again")
+
+    if not pending.otp_expires or pending.otp_expires < datetime.utcnow():
+        raise HTTPException(400, "Code expired — start sign up again")
+    if pending.otp_code != body.otp.strip():
+        raise HTTPException(400, "Incorrect code — check your email")
+
+    # Re-check uniqueness — someone else could have taken the name/email in
+    # the window between staging and verifying.
+    if db.query(User).filter(func.lower(User.username) == pending.username.lower()).first():
+        db.delete(pending)
+        db.commit()
+        raise HTTPException(400, "This username is taken, try again")
+    if db.query(User).filter(func.lower(User.email) == pending.email.lower()).first():
+        db.delete(pending)
+        db.commit()
+        raise HTTPException(400, "An account with this email already exists")
+
+    user = User(
+        email=pending.email,
+        username=pending.username,
+        phone_number=pending.phone_number,
+        password_hash=pending.password_hash,
+    )
+    db.add(user)
+    db.delete(pending)
+    db.commit()
+    db.refresh(user)
+
     return {
         "message": "Account created successfully",
-        "access_token": token,
+        "access_token": create_access_token(user.id),
         "user_id": user.id,
-        "totp": {"secret": secret, "otpauth_uri": uri, "qr_svg": totp_service.qr_svg(uri)},
     }
 
 
@@ -100,35 +142,19 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
         if known:
             return {"message": "Login Success", "access_token": create_access_token(user.id)}
 
-    # One path only: every account authenticates with an authenticator app.
-    # The code already exists on the user's device, so there is nothing to
-    # generate or send here.
-    if user.totp_confirmed:
-        return {
-            "message": "Enter the code from your authenticator app",
-            "requires_otp": True,
-            "method": "totp",
-            "email": user.email,
-        }
-
-    # No app enrolled yet — most likely signup was abandoned at the QR step.
-    # Re-issue the secret and finish enrolment now rather than refusing the
-    # login, which would strand the account with no way back in.
-    #
-    # The session token below is handed out before a second factor exists.
-    # That is the honest position: this account currently has one factor, the
-    # password, which has just been verified. Enrolment is what upgrades it.
-    secret = user.totp_secret or totp_service.new_secret()
-    user.totp_secret = secret
+    # Login Method pseudocode: "GENERATE 6-digit OTP ... SEND to registered
+    # Email". Short-lived and single-use — cleared the moment it's verified
+    # (or replaced by a fresh one on the next login attempt).
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    user.otp_code = code
+    user.otp_expires = datetime.utcnow() + timedelta(minutes=10)
     db.commit()
+    send_login_otp_email(user.email, code)
 
-    uri = totp_service.provisioning_uri(secret, user.username)
     return {
-        "message": "Finish setting up your authenticator app",
-        "requires_enrolment": True,
+        "message": "We've emailed a 6-digit code to your registered email",
+        "requires_otp": True,
         "email": user.email,
-        "access_token": create_access_token(user.id),
-        "totp": {"secret": secret, "otpauth_uri": uri, "qr_svg": totp_service.qr_svg(uri)},
     }
 
 
@@ -138,13 +164,14 @@ def verify_otp(body: VerifyOtpRequest, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(404, "User not found")
 
-    if not user.totp_confirmed:
-        raise HTTPException(400, "Set up your authenticator app first — log in again to finish")
+    if not user.otp_code or not user.otp_expires or user.otp_expires < datetime.utcnow():
+        raise HTTPException(400, "Code expired — log in again to get a new one")
+    if user.otp_code != body.otp.strip():
+        raise HTTPException(400, "Incorrect code — check your email")
 
-    # Nothing pending server-side: the code is derived from the shared secret
-    # and the current time, so it's checked directly.
-    if not totp_service.verify(user.totp_secret, body.otp):
-        raise HTTPException(400, "Incorrect code — check your authenticator app")
+    user.otp_code = ""
+    user.otp_expires = None
+    db.commit()
 
     response = {"message": "Login Success", "access_token": create_access_token(user.id)}
     if body.remember_device:
@@ -156,46 +183,59 @@ def verify_otp(body: VerifyOtpRequest, db: Session = Depends(get_db)):
 
 
 class ForgotPasswordRequest(BaseModel):
-    identifier: str  # username, email, or phone number — matches the Login page's wireframe field
+    identifier: str  # username, email, or phone number — matches the wireframe's field
+    new_password: str
 
 
 @router.post("/forgot-password")
 def forgot_password(body: ForgotPasswordRequest, db: Session = Depends(get_db)):
-    """Login Method pseudocode: "SEND password reset mail to registered Email
-    ID ... DISPLAY Reset Email Sent" — a link with a single-use, time-limited
-    token, not a same-request password change. Anything else would let
-    whoever merely knows a username take over the account outright."""
+    """Wireframe: identifier + new password on one page. The password isn't
+    applied yet, though — it's staged (pending_password_hash) behind the
+    same emailed 6-digit code Login and Signup use, so submitting this form
+    alone can't take over an account just by knowing its username."""
     user = User.find_by_identifier(db, body.identifier)
     if not user:
         raise HTTPException(404, "Error: User not found")
-
-    token = secrets.token_urlsafe(32)
-    user.reset_token = token
-    user.reset_token_expires = datetime.utcnow() + _RESET_TOKEN_TTL
-    db.commit()
-
-    reset_link = f"{FRONTEND_URL}/reset-password?token={token}"
-    send_password_reset_email(user.email, reset_link)
-    return {"message": "Reset Email Sent"}
-
-
-class ResetPasswordRequest(BaseModel):
-    token: str
-    new_password: str
-
-
-@router.post("/reset-password")
-def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.reset_token == body.token).first() if body.token else None
-    if not user or not user.reset_token_expires or user.reset_token_expires < datetime.utcnow():
-        raise HTTPException(400, "This reset link is invalid or has expired — request a new one")
     if not is_password_valid(body.new_password):
         raise HTTPException(
             400, "Password must be at least 9 characters, no spaces or restricted symbols"
         )
 
-    user.password_hash = hash_password(body.new_password)
-    user.reset_token = ""
-    user.reset_token_expires = None
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    user.otp_code = code
+    user.otp_expires = datetime.utcnow() + timedelta(minutes=10)
+    user.pending_password_hash = hash_password(body.new_password)
+    db.commit()
+    send_password_reset_otp_email(user.email, code)
+
+    return {
+        "message": "We've emailed a 6-digit code to your registered email",
+        "requires_otp": True,
+        "email": user.email,
+    }
+
+
+class VerifyResetOtpRequest(BaseModel):
+    email: str
+    otp: str
+
+
+@router.post("/verify-reset-otp")
+def verify_reset_otp(body: VerifyResetOtpRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == body.email).first()
+    if not user:
+        raise HTTPException(404, "User not found")
+
+    if not user.otp_code or not user.otp_expires or user.otp_expires < datetime.utcnow():
+        raise HTTPException(400, "Code expired — start again")
+    if user.otp_code != body.otp.strip():
+        raise HTTPException(400, "Incorrect code — check your email")
+    if not user.pending_password_hash:
+        raise HTTPException(400, "No password reset in progress — start again")
+
+    user.password_hash = user.pending_password_hash
+    user.pending_password_hash = ""
+    user.otp_code = ""
+    user.otp_expires = None
     db.commit()
     return {"message": "Password reset successfully"}

@@ -122,6 +122,66 @@ export default function Upload() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
+
+          {/* Wireframe: the image/video picker sits right up top next to
+              the title, not buried after every text field. */}
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragActive(true);
+            }}
+            onDragLeave={() => setDragActive(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragActive(false);
+              pickMedia(e.dataTransfer.files?.[0]);
+            }}
+            style={{
+              border: `2px dashed ${dragActive ? "var(--accent)" : "var(--border)"}`,
+              borderRadius: 14,
+              background: dragActive ? "#fdf1e2" : "#f6efe1",
+              padding: mediaPreview || existingMediaUrl ? 0 : 28,
+              textAlign: "center",
+              cursor: "pointer",
+              marginBottom: 14,
+              overflow: "hidden",
+            }}
+          >
+            {mediaPreview ? (
+              <img
+                src={mediaPreview}
+                alt="Preview"
+                style={{ width: "100%", maxHeight: 220, objectFit: "cover", display: "block" }}
+              />
+            ) : media ? (
+              <div style={{ color: "var(--text-muted)" }}>{media.name} selected</div>
+            ) : existingMediaUrl && existingMediaContentType.startsWith("video/") ? (
+              <video
+                src={`${API_BASE}${existingMediaUrl}`}
+                controls
+                style={{ width: "100%", maxHeight: 220, display: "block" }}
+              />
+            ) : existingMediaUrl ? (
+              <img
+                src={`${API_BASE}${existingMediaUrl}`}
+                alt="Current"
+                style={{ width: "100%", maxHeight: 220, objectFit: "cover", display: "block" }}
+              />
+            ) : (
+              <div style={{ color: "var(--text-muted)" }}>
+                Drag and drop an image or video, or click to choose a file
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,video/*"
+              hidden
+              onChange={(e) => pickMedia(e.target.files[0])}
+            />
+          </div>
+
           <textarea
             rows={3}
             placeholder="Ingredients (comma-separated)"
@@ -201,63 +261,6 @@ export default function Upload() {
 
           <StarPicker label="Speed" value={Number(speed)} onChange={setSpeed} />
           <StarPicker label="Difficulty" value={Number(difficulty)} onChange={setDifficulty} />
-
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragActive(true);
-            }}
-            onDragLeave={() => setDragActive(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setDragActive(false);
-              pickMedia(e.dataTransfer.files?.[0]);
-            }}
-            style={{
-              border: `2px dashed ${dragActive ? "var(--accent)" : "var(--border)"}`,
-              borderRadius: 14,
-              background: dragActive ? "#fdf1e2" : "#f6efe1",
-              padding: mediaPreview || existingMediaUrl ? 0 : 28,
-              textAlign: "center",
-              cursor: "pointer",
-              marginBottom: 14,
-              overflow: "hidden",
-            }}
-          >
-            {mediaPreview ? (
-              <img
-                src={mediaPreview}
-                alt="Preview"
-                style={{ width: "100%", maxHeight: 220, objectFit: "cover", display: "block" }}
-              />
-            ) : media ? (
-              <div style={{ color: "var(--text-muted)" }}>{media.name} selected</div>
-            ) : existingMediaUrl && existingMediaContentType.startsWith("video/") ? (
-              <video
-                src={`${API_BASE}${existingMediaUrl}`}
-                controls
-                style={{ width: "100%", maxHeight: 220, display: "block" }}
-              />
-            ) : existingMediaUrl ? (
-              <img
-                src={`${API_BASE}${existingMediaUrl}`}
-                alt="Current"
-                style={{ width: "100%", maxHeight: 220, objectFit: "cover", display: "block" }}
-              />
-            ) : (
-              <div style={{ color: "var(--text-muted)" }}>
-                Drag and drop an image or video, or click to choose a file
-              </div>
-            )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*,video/*"
-              hidden
-              onChange={(e) => pickMedia(e.target.files[0])}
-            />
-          </div>
 
           <button className="btn" type="submit" style={{ width: "100%", marginTop: 14 }}>
             {editId ? "Save Changes" : "Submit Recipe"}

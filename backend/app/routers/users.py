@@ -4,14 +4,12 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
-from pydantic import BaseModel
 from sqlalchemy.orm import Session, defer
 
 from app.database import get_db
 from app.deps import get_current_user, get_current_user_optional
 from app.models import Recipe, SavedRecipe, Subscription, User
 from app.routers.recipes import _serialize
-from app.services import totp_service
 from app.services.media import read_validated_media
 
 router = APIRouter(prefix="/api/users", tags=["users"])
@@ -22,7 +20,10 @@ def _profile(db: Session, user: User, viewer: Optional[User] = None) -> dict:
     # media_url/media_content_type, and a profile with several video uploads
     # would otherwise pull every one of those blobs just to list titles.
     recipes = (
-        db.query(Recipe).options(defer(Recipe.media_data)).filter(Recipe.creator_id == user.id).all()
+        db.query(Recipe)
+        .options(defer(Recipe.media_data))
+        .filter(Recipe.creator_id == user.id)
+        .all()
     )
     follower_count = db.query(Subscription).filter(Subscription.creator_id == user.id).count()
     following_count = db.query(Subscription).filter(Subscription.subscriber_id == user.id).count()
@@ -72,7 +73,10 @@ def _summaries(db: Session, ids: list[int]) -> list[dict]:
             "last_name": u.last_name,
             "profile_picture_url": u.profile_picture_url,
         }
-        for u in db.query(User).options(defer(User.profile_picture_data)).filter(User.id.in_(ids)).all()
+        for u in db.query(User)
+        .options(defer(User.profile_picture_data))
+        .filter(User.id.in_(ids))
+        .all()
     ]
 
 
@@ -101,68 +105,6 @@ def get_profile(
     if not user:
         raise HTTPException(404, "User not found")
     return _profile(db, user, viewer)
-
-
-@router.get("/me/settings")
-def my_settings(user: User = Depends(get_current_user)):
-    """Account settings only the owner should see — whether 2FA is on is not
-    something to advertise on a public profile."""
-    return {"totp_confirmed": bool(user.totp_confirmed)}
-
-
-@router.post("/me/2fa/totp/setup")
-def totp_setup(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Issue a fresh secret and the QR to enrol it.
-
-    Deliberately does NOT switch the account over to TOTP — the user has to
-    prove they can generate a valid code first (see /confirm). Flipping the
-    method here would lock out anyone who closed the page before scanning.
-    """
-    secret = totp_service.new_secret()
-    user.totp_secret = secret
-    user.totp_confirmed = False
-    db.commit()
-
-    uri = totp_service.provisioning_uri(secret, user.username)
-    return {
-        "secret": secret,  # shown for manual entry when a camera isn't available
-        "otpauth_uri": uri,
-        "qr_svg": totp_service.qr_svg(uri),
-    }
-
-
-class TotpCodeRequest(BaseModel):
-    code: str
-
-
-@router.post("/me/2fa/totp/confirm")
-def totp_confirm(
-    body: TotpCodeRequest, user: User = Depends(get_current_user), db: Session = Depends(get_db)
-):
-    """Activate TOTP, but only once a code from the app checks out."""
-    if not user.totp_secret:
-        raise HTTPException(400, "Start setup first")
-    if not totp_service.verify(user.totp_secret, body.code):
-        raise HTTPException(400, "That code didn't match — check the app and try again")
-
-    user.totp_confirmed = True
-    db.commit()
-    return {"message": "Authenticator app enabled"}
-
-
-@router.post("/me/2fa/totp/reset")
-def totp_reset(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """Start over on a new device.
-
-    There's no way to turn the authenticator off — it's the only way in — so
-    the case this exists for is a lost or replaced phone. Clearing the secret
-    means the next login serves a fresh QR, and the old enrolment sitting in
-    the previous device's app stops working.
-    """
-    user.totp_secret = ""
-    user.totp_confirmed = False
-    db.commit()
-    return {"message": "Authenticator reset — you'll set it up again at your next login"}
 
 
 @router.put("/me")

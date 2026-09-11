@@ -4,7 +4,6 @@ import Layout from "../components/Layout";
 import PageLoading from "../components/PageLoading";
 import StarRating from "../components/StarRating";
 import Avatar from "../components/Avatar";
-import { useConfirm } from "../hooks/useConfirm";
 import { useToast } from "../hooks/useToast";
 import { api, API_BASE, requireAuthOrAlert, getMyUserId } from "../authGuard";
 
@@ -49,7 +48,6 @@ function renderRecipeCard(r, { saved }) {
 export default function Profile() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [confirmModal, confirm] = useConfirm();
   const [toast, showToast] = useToast();
   const [profile, setProfile] = useState(null);
   const [firstName, setFirstName] = useState("");
@@ -61,37 +59,6 @@ export default function Profile() {
   const uploadedScrollRef = useRef(null);
   const savedScrollRef = useRef(null);
   const [connections, setConnections] = useState(null); // { kind, users } | null
-  const [totpConfirmed, setTotpConfirmed] = useState(false);
-  const [totpSetup, setTotpSetup] = useState(null); // { qr_svg, secret }
-  const [totpCode, setTotpCode] = useState("");
-  const [totpMsg, setTotpMsg] = useState(null);
-
-  async function startTotpSetup() {
-    setTotpMsg(null);
-    setTotpSetup(await api("/api/users/me/2fa/totp/setup", { method: "POST", auth: true }));
-  }
-
-  async function confirmTotp(e) {
-    e.preventDefault();
-    try {
-      await api("/api/users/me/2fa/totp/confirm", { method: "POST", auth: true, body: { code: totpCode } });
-      setTotpConfirmed(true);
-      setTotpSetup(null);
-      setTotpCode("");
-      setTotpMsg({ type: "success", text: "Authenticator app enabled." });
-    } catch (err) {
-      setTotpMsg({ type: "error", text: err.message });
-    }
-  }
-
-  async function resetTotp() {
-    const ok = await confirm("Reset your authenticator? You'll set it up again at your next login.");
-    if (!ok) return;
-    await api("/api/users/me/2fa/totp/reset", { method: "POST", auth: true });
-    setTotpConfirmed(false);
-    setTotpSetup(null);
-    setTotpMsg({ type: "success", text: "Reset — you'll scan a new QR next time you log in." });
-  }
   const isMe = parseInt(id, 10) === getMyUserId();
 
   async function toggleConnections(kind) {
@@ -117,27 +84,17 @@ export default function Profile() {
     setFirstName(p.first_name || "");
     setLastName(p.last_name || "");
     setAge(p.age || "");
-    if (parseInt(id, 10) === getMyUserId()) {
-      // 2FA state is owner-only, so it comes from a separate settings call
-      // rather than the public profile payload.
-      api("/api/users/me/settings", { auth: true })
-        .then((s) => setTotpConfirmed(s.totp_confirmed))
-        .catch(() => {});
-    }
   }
   useEffect(() => {
     // React Router reuses this same component instance when only the :id
     // param changes (e.g. clicking a name in the followers/following list) —
     // it does not unmount/remount. Without this, clicking through to another
-    // profile keeps whatever panel was open (followers list, edit mode, TOTP
-    // setup) stuck on screen, now showing stale data over the new profile.
+    // profile keeps whatever panel was open (followers list, edit mode)
+    // stuck on screen, now showing stale data over the new profile.
     setConnections(null);
     setEditing(false);
     if (uploadedScrollRef.current) uploadedScrollRef.current.scrollLeft = 0;
     if (savedScrollRef.current) savedScrollRef.current.scrollLeft = 0;
-    setTotpSetup(null);
-    setTotpCode("");
-    setTotpMsg(null);
     setPfp(null);
     setPfpPreview(null);
     load();
@@ -303,48 +260,6 @@ export default function Profile() {
                     onChange={(e) => setAge(e.target.value)}
                   />
 
-                  <div className="totp-box">
-                    <strong style={{ fontSize: 14 }}>🔒 Two-factor authentication</strong>
-                    <p className="meta" style={{ margin: "4px 0 10px" }}>
-                      {totpConfirmed
-                        ? "Your authenticator app is set up. You'll enter a code from it each time you log in."
-                        : "Not set up yet — you'll be asked to scan a QR at your next login."}
-                    </p>
-                    {totpMsg && <div className={`alert ${totpMsg.type}`}>{totpMsg.text}</div>}
-
-                    {totpConfirmed ? (
-                      <button type="button" className="btn small secondary" onClick={resetTotp}>
-                        Set up on a new phone
-                      </button>
-                    ) : !totpSetup ? (
-                      <button type="button" className="btn small secondary" onClick={startTotpSetup}>
-                        Set up now
-                      </button>
-                    ) : (
-                      <>
-                        <p className="meta" style={{ marginBottom: 10 }}>
-                          Scan this with Google Authenticator, Authy, or 1Password — then enter the code it
-                          shows to finish.
-                        </p>
-                        <div className="totp-qr" dangerouslySetInnerHTML={{ __html: totpSetup.qr_svg }} />
-                        <p className="meta">Can't scan? Enter this key manually:</p>
-                        <code className="totp-secret">{totpSetup.secret}</code>
-                        <div className="field-row" style={{ marginTop: 10 }}>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            placeholder="6-digit code"
-                            value={totpCode}
-                            onChange={(e) => setTotpCode(e.target.value)}
-                          />
-                          <button type="button" className="btn small" onClick={confirmTotp}>
-                            Verify &amp; enable
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-
                   <div className="pfp-row">
                     {(pfpPreview || profile.profile_picture_url) && (
                       <img
@@ -430,7 +345,6 @@ export default function Profile() {
         </div>
       </div>
 
-      {confirmModal}
       {toast}
     </Layout>
   );
