@@ -191,16 +191,18 @@ export default function Profile() {
   return (
     <Layout>
       <div className="container">
-        <div className="profile-card">
-          <div className="profile-cover" />
-          <div className="profile-header">
-            <Avatar
-              src={profile.profile_picture_url}
-              label={profile.username}
-              className="profile-avatar"
-              emptyClassName="profile-avatar-empty"
-            />
-            <div className="profile-info">
+        {/* Wireframe: avatar + user info sit in a narrow left sidebar beside
+            the recipe rows, not in a full-width banner above them. */}
+        <div className="profile-layout">
+          <aside className="profile-sidebar">
+            <div className="profile-cover" />
+            <div className="profile-sidebar-body">
+              <Avatar
+                src={profile.profile_picture_url}
+                label={profile.username}
+                className="profile-avatar"
+                emptyClassName="profile-avatar-empty"
+              />
               <h1>{profile.username}</h1>
               {(profile.first_name || profile.last_name || profile.age) && (
                 <div className="profile-realname">
@@ -210,14 +212,15 @@ export default function Profile() {
                     : ""}
                 </div>
               )}
-              <div className="profile-stats">
-                <span>
+
+              <div className="profile-stats-list">
+                <div className="profile-stat-row">
                   <strong>{profile.uploaded_recipes.length}</strong> recipes
-                </span>
-                <button type="button" className="stat-btn" onClick={() => toggleConnections("followers")}>
+                </div>
+                <button type="button" className="stat-btn profile-stat-row" onClick={() => toggleConnections("followers")}>
                   <strong>{profile.followers}</strong> followers
                 </button>
-                <button type="button" className="stat-btn" onClick={() => toggleConnections("following")}>
+                <button type="button" className="stat-btn profile-stat-row" onClick={() => toggleConnections("following")}>
                   <strong>{profile.following}</strong> following
                 </button>
               </div>
@@ -264,166 +267,168 @@ export default function Profile() {
                 )}
               </div>
             </div>
+          </aside>
+
+          <div className="profile-content">
+            {isMe && editing && (
+              <div className="recipe-detail">
+                <h3 style={{ marginBottom: 16 }}>Edit Profile</h3>
+                <form className="edit-form" onSubmit={submitEdit}>
+                  <div className="field-row">
+                    <input
+                      type="text"
+                      placeholder="First name"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Last name"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                    />
+                  </div>
+                  <textarea
+                    rows={3}
+                    placeholder="Short bio"
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                  ></textarea>
+                  <input
+                    type="number"
+                    min="0"
+                    max="120"
+                    placeholder="Age"
+                    style={{ maxWidth: 140 }}
+                    value={age}
+                    onChange={(e) => setAge(e.target.value)}
+                  />
+
+                  <div className="totp-box">
+                    <strong style={{ fontSize: 14 }}>🔒 Two-factor authentication</strong>
+                    <p className="meta" style={{ margin: "4px 0 10px" }}>
+                      {totpConfirmed
+                        ? "Your authenticator app is set up. You'll enter a code from it each time you log in."
+                        : "Not set up yet — you'll be asked to scan a QR at your next login."}
+                    </p>
+                    {totpMsg && <div className={`alert ${totpMsg.type}`}>{totpMsg.text}</div>}
+
+                    {totpConfirmed ? (
+                      <button type="button" className="btn small secondary" onClick={resetTotp}>
+                        Set up on a new phone
+                      </button>
+                    ) : !totpSetup ? (
+                      <button type="button" className="btn small secondary" onClick={startTotpSetup}>
+                        Set up now
+                      </button>
+                    ) : (
+                      <>
+                        <p className="meta" style={{ marginBottom: 10 }}>
+                          Scan this with Google Authenticator, Authy, or 1Password — then enter the code it
+                          shows to finish.
+                        </p>
+                        <div className="totp-qr" dangerouslySetInnerHTML={{ __html: totpSetup.qr_svg }} />
+                        <p className="meta">Can't scan? Enter this key manually:</p>
+                        <code className="totp-secret">{totpSetup.secret}</code>
+                        <div className="field-row" style={{ marginTop: 10 }}>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="6-digit code"
+                            value={totpCode}
+                            onChange={(e) => setTotpCode(e.target.value)}
+                          />
+                          <button type="button" className="btn small" onClick={confirmTotp}>
+                            Verify &amp; enable
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="pfp-row">
+                    {(pfpPreview || profile.profile_picture_url) && (
+                      <img
+                        className="pfp-preview"
+                        src={pfpPreview || `${API_BASE}${profile.profile_picture_url}`}
+                        alt="Profile picture preview"
+                      />
+                    )}
+                    <label className="btn small secondary" style={{ cursor: "pointer" }}>
+                      {pfp ? "Change picture" : "Choose picture"}
+                      <input type="file" accept="image/*" hidden onChange={(e) => pickPfp(e.target.files[0])} />
+                    </label>
+                    {pfp && <span className="meta">{pfp.name}</span>}
+                  </div>
+
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button className="btn small" type="submit">
+                      Save changes
+                    </button>
+                    <button className="btn small secondary" type="button" onClick={() => setEditing(false)}>
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            <h2 style={{ margin: "0 0 10px" }}>Uploaded Recipes</h2>
+            {profile.uploaded_recipes.length === 0 ? (
+              <div className="empty-state">No recipes uploaded yet.</div>
+            ) : (
+              <div className="recipe-scroll-section">
+                <button
+                  type="button"
+                  className="scroll-arrow"
+                  aria-label="Scroll uploaded recipes left"
+                  onClick={() => scrollByCards(uploadedScrollRef, -1)}
+                >
+                  ‹
+                </button>
+                <div className="recipe-scroll-row" ref={uploadedScrollRef}>
+                  {profile.uploaded_recipes.map((r) => renderRecipeCard(r, { saved: false }))}
+                </div>
+                <button
+                  type="button"
+                  className="scroll-arrow"
+                  aria-label="Scroll uploaded recipes right"
+                  onClick={() => scrollByCards(uploadedScrollRef, 1)}
+                >
+                  ›
+                </button>
+              </div>
+            )}
+
+            {/* Wireframe callout: "Inverted Yellow Brown Colour Scheme" for Saved Recipes */}
+            <h2 style={{ margin: "24px 0 10px" }}>Saved Recipes</h2>
+            {profile.saved_recipes.length === 0 ? (
+              <div className="empty-state">No saved recipes yet.</div>
+            ) : (
+              <div className="recipe-scroll-section">
+                <button
+                  type="button"
+                  className="scroll-arrow"
+                  aria-label="Scroll saved recipes left"
+                  onClick={() => scrollByCards(savedScrollRef, -1)}
+                >
+                  ‹
+                </button>
+                <div className="recipe-scroll-row" ref={savedScrollRef}>
+                  {profile.saved_recipes.map((r) => renderRecipeCard(r, { saved: true }))}
+                </div>
+                <button
+                  type="button"
+                  className="scroll-arrow"
+                  aria-label="Scroll saved recipes right"
+                  onClick={() => scrollByCards(savedScrollRef, 1)}
+                >
+                  ›
+                </button>
+              </div>
+            )}
           </div>
         </div>
-
-        {isMe && editing && (
-          <div className="recipe-detail">
-            <h3 style={{ marginBottom: 16 }}>Edit Profile</h3>
-            <form className="edit-form" onSubmit={submitEdit}>
-              <div className="field-row">
-                <input
-                  type="text"
-                  placeholder="First name"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                />
-                <input
-                  type="text"
-                  placeholder="Last name"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                />
-              </div>
-              <textarea
-                rows={3}
-                placeholder="Short bio"
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-              ></textarea>
-              <input
-                type="number"
-                min="0"
-                max="120"
-                placeholder="Age"
-                style={{ maxWidth: 140 }}
-                value={age}
-                onChange={(e) => setAge(e.target.value)}
-              />
-
-              <div className="totp-box">
-                <strong style={{ fontSize: 14 }}>🔒 Two-factor authentication</strong>
-                <p className="meta" style={{ margin: "4px 0 10px" }}>
-                  {totpConfirmed
-                    ? "Your authenticator app is set up. You'll enter a code from it each time you log in."
-                    : "Not set up yet — you'll be asked to scan a QR at your next login."}
-                </p>
-                {totpMsg && <div className={`alert ${totpMsg.type}`}>{totpMsg.text}</div>}
-
-                {totpConfirmed ? (
-                  <button type="button" className="btn small secondary" onClick={resetTotp}>
-                    Set up on a new phone
-                  </button>
-                ) : !totpSetup ? (
-                  <button type="button" className="btn small secondary" onClick={startTotpSetup}>
-                    Set up now
-                  </button>
-                ) : (
-                  <>
-                    <p className="meta" style={{ marginBottom: 10 }}>
-                      Scan this with Google Authenticator, Authy, or 1Password — then enter the code it shows
-                      to finish.
-                    </p>
-                    <div className="totp-qr" dangerouslySetInnerHTML={{ __html: totpSetup.qr_svg }} />
-                    <p className="meta">Can't scan? Enter this key manually:</p>
-                    <code className="totp-secret">{totpSetup.secret}</code>
-                    <div className="field-row" style={{ marginTop: 10 }}>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        placeholder="6-digit code"
-                        value={totpCode}
-                        onChange={(e) => setTotpCode(e.target.value)}
-                      />
-                      <button type="button" className="btn small" onClick={confirmTotp}>
-                        Verify &amp; enable
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <div className="pfp-row">
-                {(pfpPreview || profile.profile_picture_url) && (
-                  <img
-                    className="pfp-preview"
-                    src={pfpPreview || `${API_BASE}${profile.profile_picture_url}`}
-                    alt="Profile picture preview"
-                  />
-                )}
-                <label className="btn small secondary" style={{ cursor: "pointer" }}>
-                  {pfp ? "Change picture" : "Choose picture"}
-                  <input type="file" accept="image/*" hidden onChange={(e) => pickPfp(e.target.files[0])} />
-                </label>
-                {pfp && <span className="meta">{pfp.name}</span>}
-              </div>
-
-              <div style={{ display: "flex", gap: 10 }}>
-                <button className="btn small" type="submit">
-                  Save changes
-                </button>
-                <button className="btn small secondary" type="button" onClick={() => setEditing(false)}>
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        <h2 style={{ margin: "20px 0 10px" }}>Uploaded Recipes</h2>
-        {profile.uploaded_recipes.length === 0 ? (
-          <div className="empty-state">No recipes uploaded yet.</div>
-        ) : (
-          <div className="recipe-scroll-section">
-            <button
-              type="button"
-              className="scroll-arrow"
-              aria-label="Scroll uploaded recipes left"
-              onClick={() => scrollByCards(uploadedScrollRef, -1)}
-            >
-              ‹
-            </button>
-            <div className="recipe-scroll-row" ref={uploadedScrollRef}>
-              {profile.uploaded_recipes.map((r) => renderRecipeCard(r, { saved: false }))}
-            </div>
-            <button
-              type="button"
-              className="scroll-arrow"
-              aria-label="Scroll uploaded recipes right"
-              onClick={() => scrollByCards(uploadedScrollRef, 1)}
-            >
-              ›
-            </button>
-          </div>
-        )}
-
-        {/* Wireframe callout: "Inverted Yellow Brown Colour Scheme" for Saved Recipes */}
-        <h2 style={{ margin: "20px 0 10px" }}>Saved Recipes</h2>
-        {profile.saved_recipes.length === 0 ? (
-          <div className="empty-state">No saved recipes yet.</div>
-        ) : (
-          <div className="recipe-scroll-section">
-            <button
-              type="button"
-              className="scroll-arrow"
-              aria-label="Scroll saved recipes left"
-              onClick={() => scrollByCards(savedScrollRef, -1)}
-            >
-              ‹
-            </button>
-            <div className="recipe-scroll-row" ref={savedScrollRef}>
-              {profile.saved_recipes.map((r) => renderRecipeCard(r, { saved: true }))}
-            </div>
-            <button
-              type="button"
-              className="scroll-arrow"
-              aria-label="Scroll saved recipes right"
-              onClick={() => scrollByCards(savedScrollRef, 1)}
-            >
-              ›
-            </button>
-          </div>
-        )}
       </div>
 
       {confirmModal}
