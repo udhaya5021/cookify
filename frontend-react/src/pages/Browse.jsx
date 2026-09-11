@@ -255,7 +255,6 @@ export default function Browse() {
                     />
                     <div className="author-info">
                       <div className="author-name">{r.creator_username || "Unknown"}</div>
-                      {r.creator_bio && <div className="author-bio">{r.creator_bio}</div>}
                     </div>
                   </div>
                   <div className="title">{r.title}</div>

@@ -88,7 +88,7 @@ Runs on **Python 3.9+**.
 
 | Case | How to verify |
 |---|---|
-| Account creation | Sign up (username, email, phone, password), then add a profile picture and bio from Edit Profile |
+| Account creation | Sign up (username, email, phone, password), then add a profile picture from Edit Profile |
 | Login + 2FA | Log in with username, email, *or* phone number, then the 6-digit code from your authenticator app |
 | Recipe upload/search/filter | Upload a recipe with a photo or video, then search/filter by ingredient, utensil, cost, time, calories, speed, difficulty, dietary tag, food type, cuisine, and rating |
 | Veg/Non-veg + dietary dropdown | Browse page — "Veg only" toggle, plus the Vegetarian/Eggetarian/Pescetarian/Jain/Non-Vegetarian dropdown |

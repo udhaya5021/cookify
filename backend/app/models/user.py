@@ -28,7 +28,6 @@ class User(Base):
     last_name = Column(String, default="")
     age = Column(Integer, nullable=True)
     gender = Column(String, default="")
-    bio = Column(String, default="")
     profile_picture_url = Column(String, default="")  # points at GET /api/users/{id}/avatar
     profile_picture_data = Column(LargeBinary, nullable=True)  # actual bytes, stored in Postgres
     profile_picture_content_type = Column(String, default="")

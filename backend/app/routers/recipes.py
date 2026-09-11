@@ -54,7 +54,6 @@ def _serialize(
         "creator_id": r.creator_id,
         "creator_username": r.creator.username if r.creator else None,
         "creator_profile_picture_url": r.creator.profile_picture_url if r.creator else None,
-        "creator_bio": r.creator.bio if r.creator else None,
         "average_rating": r.average_rating,
         "rating_count": len(r.ratings),
         "comment_count": len(r.comments),

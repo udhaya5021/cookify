@@ -135,14 +135,7 @@ export default function Recipe() {
                     emptyClassName="inline-avatar-empty"
                   />
                   <div>
-                    <div>
-                      By <Link to={`/profile/${recipe.creator_id}`}>{recipe.creator_username}</Link>
-                    </div>
-                    {recipe.creator_bio && (
-                      <div className="author-bio" style={{ marginTop: 4 }}>
-                        {recipe.creator_bio}
-                      </div>
-                    )}
+                    By <Link to={`/profile/${recipe.creator_id}`}>{recipe.creator_username}</Link>
                   </div>
                 </div>
                 <div style={{ marginLeft: 8 }}>

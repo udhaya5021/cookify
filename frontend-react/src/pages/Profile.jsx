@@ -54,7 +54,6 @@ export default function Profile() {
   const [profile, setProfile] = useState(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [bio, setBio] = useState("");
   const [age, setAge] = useState("");
   const [pfp, setPfp] = useState(null);
   const [pfpPreview, setPfpPreview] = useState(null);
@@ -117,7 +116,6 @@ export default function Profile() {
     setProfile(p);
     setFirstName(p.first_name || "");
     setLastName(p.last_name || "");
-    setBio(p.bio || "");
     setAge(p.age || "");
     if (parseInt(id, 10) === getMyUserId()) {
       // 2FA state is owner-only, so it comes from a separate settings call
@@ -169,7 +167,6 @@ export default function Profile() {
     const form = new FormData();
     form.append("first_name", firstName);
     form.append("last_name", lastName);
-    form.append("bio", bio);
     // Omit entirely when blank — the backend's age field is a real
     // Optional[int] with ge/le bounds; sending "" fails int parsing and
     // used to 422 the *whole* edit, not just silently skip age.
@@ -255,7 +252,6 @@ export default function Profile() {
                   )}
                 </div>
               )}
-              <p className="profile-bio">{profile.bio || <span className="meta">No bio yet.</span>}</p>
               <div className="profile-actions">
                 {isMe ? (
                   <button className="btn small secondary" onClick={() => setEditing((v) => !v)}>
@@ -297,12 +293,6 @@ export default function Profile() {
                       onChange={(e) => setLastName(e.target.value)}
                     />
                   </div>
-                  <textarea
-                    rows={3}
-                    placeholder="Short bio"
-                    value={bio}
-                    onChange={(e) => setBio(e.target.value)}
-                  ></textarea>
                   <input
                     type="number"
                     min="0"

@@ -1,5 +1,5 @@
 """Profile view/edit — matches the assignment's Profile Page wireframe
-(profile picture, username, bio, uploaded recipes)."""
+(profile picture, username, uploaded recipes)."""
 
 from typing import Optional
 
@@ -51,7 +51,6 @@ def _profile(db: Session, user: User, viewer: Optional[User] = None) -> dict:
         "username": user.username,
         "first_name": user.first_name,
         "last_name": user.last_name,
-        "bio": user.bio,
         "age": user.age,
         "profile_picture_url": user.profile_picture_url,
         "followers": follower_count,
@@ -168,7 +167,6 @@ def totp_reset(user: User = Depends(get_current_user), db: Session = Depends(get
 
 @router.put("/me")
 async def update_profile(
-    bio: str = Form(""),
     first_name: str = Form(""),
     last_name: str = Form(""),
     age: Optional[int] = Form(None, ge=0, le=120),
@@ -176,7 +174,6 @@ async def update_profile(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    user.bio = bio
     user.first_name = first_name
     user.last_name = last_name
     user.age = age
