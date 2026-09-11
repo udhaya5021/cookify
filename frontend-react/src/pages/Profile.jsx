@@ -18,7 +18,10 @@ function scrollByCards(ref, direction) {
 // recipes you actually own, not ones you've merely saved from someone else.
 function renderRecipeCard(r, { saved }) {
   return (
-    <div key={r.id} className={`recipe-card ${!saved && r.recipe_type === "veg" ? "veg" : ""} ${saved ? "saved" : ""}`}>
+    <div
+      key={r.id}
+      className={`recipe-card ${!saved && r.recipe_type === "veg" ? "veg" : ""} ${saved ? "saved" : ""}`}
+    >
       <div className="media-wrap">
         <Avatar
           src={r.media_url}
@@ -174,10 +177,18 @@ export default function Profile() {
                 <div className="profile-stat-row">
                   <strong>{profile.uploaded_recipes.length}</strong> recipes
                 </div>
-                <button type="button" className="stat-btn profile-stat-row" onClick={() => toggleConnections("followers")}>
+                <button
+                  type="button"
+                  className="stat-btn profile-stat-row"
+                  onClick={() => toggleConnections("followers")}
+                >
                   <strong>{profile.followers}</strong> followers
                 </button>
-                <button type="button" className="stat-btn profile-stat-row" onClick={() => toggleConnections("following")}>
+                <button
+                  type="button"
+                  className="stat-btn profile-stat-row"
+                  onClick={() => toggleConnections("following")}
+                >
                   <strong>{profile.following}</strong> following
                 </button>
                 {/* Wireframe lists Age as the last row of the info block. */}
@@ -270,7 +281,12 @@ export default function Profile() {
                     )}
                     <label className="btn small secondary" style={{ cursor: "pointer" }}>
                       {pfp ? "Change picture" : "Choose picture"}
-                      <input type="file" accept="image/*" hidden onChange={(e) => pickPfp(e.target.files[0])} />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        hidden
+                        onChange={(e) => pickPfp(e.target.files[0])}
+                      />
                     </label>
                     {pfp && <span className="meta">{pfp.name}</span>}
                   </div>

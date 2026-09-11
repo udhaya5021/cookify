@@ -46,7 +46,10 @@ export default function Signup() {
         body: { username, email, phone_number: phone, password },
       });
       setPendingEmail(res.email);
-      setAlertMsg({ type: "success", text: `We've emailed a 6-digit code to ${res.email} — enter it above and confirm again.` });
+      setAlertMsg({
+        type: "success",
+        text: `We've emailed a 6-digit code to ${res.email} — enter it above and confirm again.`,
+      });
     } catch (err) {
       setAlertMsg({ type: "error", text: err.message });
     }

@@ -39,7 +39,10 @@ export default function Login() {
       });
       if (res.requires_otp) {
         setPendingEmail(res.email);
-        setAlertMsg({ type: "success", text: `We've emailed a 6-digit code to ${res.email} — enter it above and confirm again.` });
+        setAlertMsg({
+          type: "success",
+          text: `We've emailed a 6-digit code to ${res.email} — enter it above and confirm again.`,
+        });
         return;
       }
       setToken(res.access_token);

@@ -334,6 +334,23 @@ input::placeholder,
 textarea::placeholder {
   color: var(--text-muted);
 }
+/* The generic pill styling above (padding, background, border-radius)
+   doesn't apply to a range track the way it does a text field, so without
+   this a slider falls back to the browser's default blue thumb — clashing
+   with the warm orange palette used everywhere else. */
+input[type="range"] {
+  padding: 0;
+  background: transparent;
+  border: none;
+  accent-color: var(--accent);
+  margin-bottom: 14px;
+}
+/* Same reasoning as the range track above — an unstyled checkbox renders
+   with the browser's default blue check, not the app's orange accent. */
+input[type="checkbox"] {
+  width: auto;
+  accent-color: var(--accent);
+}
 textarea {
   border-radius: 16px;
   resize: vertical;
@@ -1532,4 +1549,3 @@ footer a:hover {
 #google_translate_element {
   margin-left: 12px;
 }
-

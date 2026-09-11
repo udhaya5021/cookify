@@ -34,7 +34,10 @@ export default function ForgotPassword() {
         body: { identifier, new_password: newPassword },
       });
       setPendingEmail(res.email);
-      setAlert({ type: "success", text: `We've emailed a 6-digit code to ${res.email} — enter it above and confirm again.` });
+      setAlert({
+        type: "success",
+        text: `We've emailed a 6-digit code to ${res.email} — enter it above and confirm again.`,
+      });
     } catch (err) {
       setAlert({ type: "error", text: err.message });
     }

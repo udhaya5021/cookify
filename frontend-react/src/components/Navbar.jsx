@@ -77,7 +77,9 @@ export default function Navbar({ minimal = false }) {
           {loggedIn && (
             <Link to="/messages" className="messages-link">
               Messages
-              {unreadCount > 0 && <span className="unread-badge">{unreadCount > 9 ? "9+" : unreadCount}</span>}
+              {unreadCount > 0 && (
+                <span className="unread-badge">{unreadCount > 9 ? "9+" : unreadCount}</span>
+              )}
             </Link>
           )}
           {loggedIn && <Link to={`/profile/${getMyUserId()}`}>Profile</Link>}
